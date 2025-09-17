@@ -844,6 +844,17 @@ void TriggeredLFPDisplay::updateAllPlots()
     }
 }
 
+void TriggeredLFPDisplay::assignTriggerSourceToPlot(LFPTriggerSource* source, int plotIndex)
+{
+    if (plotIndex >= 0 && plotIndex < plots.size())
+    {
+        plots[plotIndex]->setTriggerSource(source);
+        plots[plotIndex]->setChannel(0); // Use channel 0 by default
+        plots[plotIndex]->updateData();
+        plots[plotIndex]->repaint();
+    }
+}
+
 void TriggeredLFPDisplay::saveToFile()
 {
     // Implement save functionality
@@ -988,9 +999,14 @@ void TriggeredLFPCanvas::setWindowSizeMs(int preSizeMs, int postSizeMs)
 
 void TriggeredLFPCanvas::newDataReceived(LFPTriggerSource* source)
 {
-    if (acquisitionIsActive)
+    // Always update display when new data is received, regardless of acquisition state
+    // This ensures the plugin works even if canvas isn't in "acquisition mode"
+    if (display != nullptr)
     {
         display->updateTriggerSourceData(source);
+        display->updateAllPlots(); // Also update all plots to be sure
+        display->repaint(); // Force display repaint
+        repaint(); // Force canvas repaint
     }
 }
 

@@ -181,6 +181,9 @@ TriggeredLFPViewer::TriggeredLFPViewer()
                     1,
                     1,
                     3);
+    
+    // Create a default trigger source for any line (line -1 means any line)
+    addTriggerSource(-1, TTL_TRIGGER);
 }
 
 AudioProcessorEditor* TriggeredLFPViewer::createEditor()
@@ -236,6 +239,14 @@ void TriggeredLFPViewer::parameterValueChanged(Parameter* param)
 
 void TriggeredLFPViewer::process(AudioBuffer<float>& buffer)
 {
+    static int processCallCount = 0;
+    processCallCount++;
+    
+    if (processCallCount % 1000 == 0) // Log every 1000 calls to avoid spam
+    {
+        LOGD("Process called ", processCallCount, " times. Trigger sources: ", triggerSources.size());
+    }
+    
     // Update continuous buffer for triggered data collection
     updateContinuousBuffer(buffer);
     
@@ -257,8 +268,12 @@ void TriggeredLFPViewer::updateContinuousBuffer(const AudioBuffer<float>& buffer
             float sampleRate = getDataStreams()[0]->getSampleRate();
             if (sampleRate > 0)
             {
-                int maxWindowMs = jmax(getPreWindowSizeMs(), getPostWindowSizeMs());
-                bufferSize = (int)(sampleRate * (maxWindowMs + 1000) / 1000); // Add 1 second buffer
+                int preWindowMs = getPreWindowSizeMs();
+                int postWindowMs = getPostWindowSizeMs();
+                int totalWindowMs = preWindowMs + postWindowMs;
+                // Buffer size should be at least 3x the window size to ensure we have enough data
+                int bufferTimeMs = jmax(totalWindowMs * 3, totalWindowMs + 2000);
+                bufferSize = (int)(sampleRate * bufferTimeMs / 1000);
                 
                 continuousBuffer.clear();
                 for (int ch = 0; ch < numChannels; ch++)
@@ -280,16 +295,18 @@ void TriggeredLFPViewer::updateContinuousBuffer(const AudioBuffer<float>& buffer
     {
         for (int sample = 0; sample < numSamples; sample++)
         {
-            continuousBuffer.getReference(ch).set(writeIndex + sample, buffer.getSample(ch, sample));
+            int bufferPos = (writeIndex + sample) % bufferSize;
+            continuousBuffer.getReference(ch).set(bufferPos, buffer.getSample(ch, sample));
         }
     }
     
-    writeIndex += numSamples;
-    if (writeIndex >= bufferSize)
+    // Check if buffer will become full before updating writeIndex
+    if (writeIndex + numSamples >= bufferSize)
     {
-        writeIndex = 0;
         bufferFull = true;
     }
+    
+    writeIndex = (writeIndex + numSamples) % bufferSize;
 }
 
 int TriggeredLFPViewer::getPreWindowSizeMs()
@@ -336,6 +353,17 @@ LFPTriggerSource* TriggeredLFPViewer::addTriggerSource(int line, TriggerType typ
 
     currentTriggerSource = source;
     getParameter("trigger_type")->setNextValue((int)type, false);
+
+    // If canvas exists, assign this trigger source to the first available plot
+    if (canvas != nullptr)
+    {
+        auto display = canvas->getDisplay();
+        if (display != nullptr)
+        {
+            // Try to assign to the first plot (index 0)
+            display->assignTriggerSourceToPlot(source, 0);
+        }
+    }
 
     return source;
 }
@@ -494,9 +522,19 @@ bool TriggeredLFPViewer::getIntField(DynamicObject::Ptr payload,
 
 void TriggeredLFPViewer::handleTTLEvent(TTLEventPtr event)
 {
+    if (triggerSources.size() == 0)
+    {
+        return;
+    }
+    
     for (auto source : triggerSources)
     {
-        if (event->getLine() == source->line && event->getState() && source->canTrigger)
+        // Check if this source should trigger:
+        // - Either the line matches exactly
+        // - Or the source line is -1 (accept any line)
+        bool lineMatches = (source->line == -1) || (event->getLine() == source->line);
+        
+        if (lineMatches && event->getState() && source->canTrigger)
         {
             collectTriggeredData(source, event->getStreamId(), event->getSampleNumber());
 
@@ -522,6 +560,51 @@ void TriggeredLFPViewer::collectTriggeredData(LFPTriggerSource* source, uint16 s
     int postSamples = (int)(sampleRate * getPostWindowSizeMs() / 1000);
     int totalSamples = preSamples + postSamples;
 
+    // Reasonable window size for actual visualization: 0.1 seconds
+    int maxSamples = (int)(sampleRate * 0.1); // 0.1 seconds (4000 samples at 40kHz)
+    if (totalSamples > maxSamples)
+    {
+        float ratio = (float)maxSamples / totalSamples;
+        preSamples = (int)(preSamples * ratio);
+        postSamples = (int)(postSamples * ratio);
+        totalSamples = preSamples + postSamples;
+    }
+
+    // Safety check: ensure we don't request more data than buffer can hold
+    if (totalSamples > bufferSize)
+    {
+        // Proportionally reduce pre and post samples
+        float ratio = (float)bufferSize * 0.9f / totalSamples; // Use 90% of buffer to be safe
+        preSamples = (int)(preSamples * ratio);
+        postSamples = (int)(postSamples * ratio);
+        totalSamples = preSamples + postSamples;
+    }
+
+    // Ensure we have enough data in the buffer
+    // We need at least totalSamples worth of data to extract a complete window
+    int availableSamples = bufferFull ? bufferSize : writeIndex;
+    if (availableSamples < totalSamples)
+    {
+        return; // Not enough data available yet
+    }
+
+    // Additional safety checks
+    if (bufferSize <= 0 || continuousBuffer.isEmpty())
+    {
+        return; // Buffer not properly initialized
+    }
+
+    if (totalSamples <= 0)
+    {
+        return; // Invalid window size
+    }
+
+    // Critical check: if bufferSize is 0, modulo operations will crash
+    if (bufferSize == 0)
+    {
+        return;
+    }
+
     // Update buffer parameters
     dataBuffers[source]->setParameters(preSamples, postSamples, continuousBuffer.size());
 
@@ -529,7 +612,10 @@ void TriggeredLFPViewer::collectTriggeredData(LFPTriggerSource* source, uint16 s
     Array<float*> channelDataPtrs;
     Array<Array<float>> extractedData;
 
-    for (int ch = 0; ch < continuousBuffer.size(); ch++)
+    // Process reasonable number of channels for visualization
+    int maxChannels = jmin(8, (int)continuousBuffer.size());
+
+    for (int ch = 0; ch < maxChannels; ch++)
     {
         Array<float> channelData;
         channelData.resize(totalSamples);
@@ -539,10 +625,39 @@ void TriggeredLFPViewer::collectTriggeredData(LFPTriggerSource* source, uint16 s
         if (startPos < 0)
             startPos += bufferSize;
 
+        // Bounds check for startPos
+        if (startPos >= bufferSize)
+        {
+            startPos = startPos % bufferSize;
+        }
+
         for (int sample = 0; sample < totalSamples; sample++)
         {
+            // Emergency brake: prevent infinite loops
+            if (sample > 10000) // Safety limit: 10k samples max
+            {
+                break;
+            }
+            
             int bufferPos = (startPos + sample) % bufferSize;
-            channelData.set(sample, continuousBuffer[ch][bufferPos]);
+            
+            // Safety check
+            if (bufferPos < 0 || bufferPos >= bufferSize)
+            {
+                channelData.set(sample, 0.0f);
+                continue;
+            }
+            
+            // Get sample data
+            if (ch < continuousBuffer.size() && 
+                bufferPos < continuousBuffer[ch].size())
+            {
+                channelData.set(sample, continuousBuffer[ch][bufferPos]);
+            }
+            else
+            {
+                channelData.set(sample, 0.0f);
+            }
         }
 
         extractedData.add(channelData);

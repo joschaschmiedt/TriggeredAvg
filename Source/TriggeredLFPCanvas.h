@@ -274,6 +274,9 @@ public:
     /** Updates data for all plots */
     void updateAllPlots();
 
+    /** Assigns a trigger source to a specific plot */
+    void assignTriggerSourceToPlot(LFPTriggerSource* source, int plotIndex);
+
     /** Saves current display to file */
     void saveToFile();
 
