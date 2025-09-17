@@ -22,7 +22,7 @@
 
 #include <PluginInfo.h>
 
-#include "VisualizerPlugin.h" // update to point to your custom header file
+#include "TriggeredLFPViewer.h"
 
 #include <string>
 
@@ -35,7 +35,7 @@
 
 using namespace Plugin;
 
-#define NUM_PLUGINS 1 // usually 1, but can be more if there are multiple plugins per repository
+#define NUM_PLUGINS 1
 
 extern "C" EXPORT void getLibInfo (Plugin::LibraryInfo* info)
 {
@@ -43,8 +43,8 @@ extern "C" EXPORT void getLibInfo (Plugin::LibraryInfo* info)
 	Should not be changed to ensure it is always equal to the one used in the latest codebase.
 	The GUI refueses to load plugins with mismatched API versions */
     info->apiVersion = PLUGIN_API_VER;
-    info->name = "VisualizerPlugin"; // Name of the plugin library
-    info->libVersion = "0.1.0"; //Version of the plugin
+    info->name = "Triggered LFP Viewer"; 
+    info->libVersion = "0.1.0";
     info->numPlugins = NUM_PLUGINS;
 }
 
@@ -52,20 +52,11 @@ extern "C" EXPORT int getPluginInfo (int index, Plugin::PluginInfo* info)
 {
     switch (index)
     {
-            //one case per plugin. This example is for a processor which connects directly to the signal chain
         case 0:
-
-            //Type of plugin. See "Source/Processors/PluginManager/OpenEphysPlugin.h" for complete info about the different type structures
             info->type = Plugin::Type::PROCESSOR;
-
-            //Processor name
-            info->processor.name = "Visualizer Plugin"; // Processor name shown in the GUI
-
-            //Type of processor. Visualizers are usually sinks, but they can also be SOURCE or FILTER processors.
+            info->processor.name = "Triggered LFP Viewer";
             info->processor.type = Processor::Type::SINK;
-
-            //Class factory pointer. Replace "ProcessorPluginSpace::ProcessorPlugin" with the namespace and class name.
-            info->processor.creator = &(Plugin::createProcessor<VisualizerPlugin>);
+            info->processor.creator = &(Plugin::createProcessor<TriggeredLFPViewer>);
             break;
 
         default:

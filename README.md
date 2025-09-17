@@ -1,6 +1,54 @@
-# Visualizer Plugin Template
+# Triggered LFP Viewer
 
-This repository contains a template for building **Visualizer** plugins for the [Open Ephys GUI](https://github.com/open-ephys/plugin-GUI). Visualizer plugins are similar to Processor Plugins, but they also include a separate "Canvas" that can be used to display data or an extended configuration interface.
+A plugin for the Open Ephys GUI that displays continuous signals triggered by TTL events and/or messages, similar to an oscilloscope triggered display.
+
+## Features
+
+- **Multi-trigger Support**: Responds to TTL lines, broadcast messages, or combined TTL+message triggers
+- **Flexible Time Windows**: Configurable pre-trigger (-500ms to -10ms) and post-trigger (10ms to 5000ms) windows
+- **Channel Selection**: Display all channels or select specific channels for visualization
+- **Multiple Display Modes**: Individual traces, averaged traces, overlay mode, or both
+- **Grid Layout**: Up to 4x6 grid of plots for multiple conditions/channels
+- **Real-time Updates**: Immediate display updates when triggered data windows are complete
+- **Signal Averaging**: Automatic averaging across trials with configurable trial history
+- **Oscilloscope-like Interface**: Familiar controls for amplitude and time scaling
+
+## Installation
+
+This plugin can be added via the Open Ephys GUI Plugin Installer. To access the Plugin Installer, press **ctrl-P** or **⌘P** from inside the GUI. Once the installer is loaded, browse to the "Triggered LFP Viewer" plugin and click "Install."
+
+## Usage
+
+### Basic Setup
+
+1. **Add Plugin**: Drag the "Triggered LFP Viewer" from the processor list into your signal chain
+2. **Configure Time Windows**: Set pre-trigger and post-trigger windows (default: -500ms to +2000ms)
+3. **Select Channels**: Choose which channels to display (default: all channels)
+4. **Add Trigger Sources**: Click "Add Trigger" to create trigger conditions
+
+### Trigger Configuration
+
+- **TTL Triggers**: Respond to rising edges on specified TTL lines
+- **Message Triggers**: Respond to broadcast messages with matching names
+- **Combined Triggers**: Require both TTL edge AND subsequent message
+
+### Display Options
+
+- **Grid Size**: 1x1 up to 4x6 grid layout
+- **Display Modes**:
+  - Individual: Show each trial separately
+  - Average: Show averaged traces across trials
+  - Overlay: Overlay multiple conditions
+  - Both: Show both individual and averaged traces
+- **Scaling**: Adjustable amplitude and time scaling
+- **Auto-scale**: Automatic amplitude scaling to data range
+
+### Controls
+
+- **Clear Data**: Reset all collected data
+- **Save**: Export traces and statistics
+- **Auto Scale**: Automatically adjust amplitude range
+- **Open Canvas**: Open the visualization window
 
 Information on the Open Ephys Plugin API can be found on [the GUI's documentation site](https://open-ephys.github.io/gui-docs/Developer-Guide/Open-Ephys-Plugin-API.html).
 

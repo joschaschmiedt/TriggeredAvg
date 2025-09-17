@@ -1,0 +1,3 @@
+[submodule "online-psth"]
+	path = online-psth
+	url = git@github.com:open-ephys-plugins/online-psth.git
