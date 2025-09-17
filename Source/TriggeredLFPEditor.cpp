@@ -250,11 +250,11 @@ void TriggerSourceTable::removeTriggerSource(int row)
 
 // TriggeredLFPEditor implementation
 TriggeredLFPEditor::TriggeredLFPEditor(GenericProcessor* parentNode) 
-    : GenericEditor(parentNode)
+    : VisualizerEditor(parentNode, "LFP", 300)
 {
     processor = static_cast<TriggeredLFPViewer*>(parentNode);
 
-    desiredWidth = 300;
+    // Remove the desiredWidth setting as VisualizerEditor handles sizing
 
     // Parameter controls
     preWindowLabel = std::make_unique<Label>("Pre Window Label", "Pre (ms):");
@@ -312,9 +312,7 @@ TriggeredLFPEditor::TriggeredLFPEditor(GenericProcessor* parentNode)
     clearDataButton->addListener(this);
     addAndMakeVisible(clearDataButton.get());
 
-    openCanvasButton = std::make_unique<UtilityButton>("Open Canvas");
-    openCanvasButton->addListener(this);
-    addAndMakeVisible(openCanvasButton.get());
+    // Remove the openCanvasButton since VisualizerEditor handles canvas opening automatically
 }
 
 void TriggeredLFPEditor::collapsedStateChanged()
@@ -353,27 +351,17 @@ void TriggeredLFPEditor::buttonClicked(Button* button)
     {
         processor->clearAllData();
     }
-    else if (button == openCanvasButton.get())
-    {
-        if (processor->canvas != nullptr)
-        {
-            processor->canvas->setVisible(true);
-        }
-        else
-        {
-            // Create new canvas via the standard method
-            auto canvas = createNewCanvas();
-            if (canvas != nullptr)
-            {
-                canvas->setVisible(true);
-            }
-        }
-    }
+    // Removed openCanvasButton handling - VisualizerEditor handles canvas opening automatically
 }
 
 Visualizer* TriggeredLFPEditor::createNewCanvas()
 {
-    return new TriggeredLFPCanvas(static_cast<TriggeredLFPViewer*>(getProcessor()));
+    TriggeredLFPViewer* processor = static_cast<TriggeredLFPViewer*>(getProcessor());
+    
+    auto canvas = new TriggeredLFPCanvas(processor);
+    processor->canvas = canvas;
+    
+    return canvas;
 }
 
 void TriggeredLFPEditor::drawParameterControls(Graphics& g)
@@ -422,7 +410,5 @@ void TriggeredLFPEditor::resized()
     // Action buttons
     addTriggerButton->setBounds(leftMargin, yPos, 80, 20);
     clearDataButton->setBounds(leftMargin + 85, yPos, 80, 20);
-    yPos += spacing;
-
-    openCanvasButton->setBounds(leftMargin, yPos, availableWidth, 25);
+    // Removed openCanvasButton bounds - VisualizerEditor handles canvas opening automatically
 }

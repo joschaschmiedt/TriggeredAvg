@@ -25,6 +25,7 @@
 #define __TriggeredLFPEditor_H_2C4C2D67__
 
 #include <EditorHeaders.h>
+#include <VisualizerEditorHeaders.h>
 
 class TriggeredLFPViewer;
 class LFPTriggerSource;
@@ -131,7 +132,7 @@ private:
 
 */
 
-class TriggeredLFPEditor : public GenericEditor,
+class TriggeredLFPEditor : public VisualizerEditor,
                           public ComboBox::Listener,
                           public Button::Listener
 {
@@ -150,7 +151,7 @@ public:
     void updateSettings() override;
 
     /** Opens the canvas window */
-    Visualizer* createNewCanvas();
+    Visualizer* createNewCanvas() override;
     
     /** ComboBox listener callback */
     void comboBoxChanged(ComboBox* comboBoxThatHasChanged) override;
@@ -182,7 +183,7 @@ private:
     // Action buttons
     std::unique_ptr<UtilityButton> addTriggerButton;
     std::unique_ptr<UtilityButton> clearDataButton;
-    std::unique_ptr<UtilityButton> openCanvasButton;
+    // Removed openCanvasButton - VisualizerEditor handles canvas opening automatically
 
     void drawParameterControls(Graphics& g);
     void updateParameterControls();

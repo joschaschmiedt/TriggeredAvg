@@ -594,7 +594,7 @@ LFPPlot* TriggeredLFPDisplay::getPlotForSourceAndChannel(LFPTriggerSource* sourc
 
 // TriggeredLFPCanvas implementation
 TriggeredLFPCanvas::TriggeredLFPCanvas(TriggeredLFPViewer* processor_)
-    : processor(processor_), acquisitionIsActive(false)
+    : Visualizer(processor_), processor(processor_), acquisitionIsActive(false)
 {
     processor->canvas = this;
 
