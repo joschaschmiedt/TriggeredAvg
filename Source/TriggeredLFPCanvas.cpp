@@ -60,29 +60,124 @@ void ChannelSelector::resized()
 
 void ChannelSelector::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
 {
-    // Handle channel selection
+    if (comboBoxThatHasChanged == channelSelector.get() && processor != nullptr)
+    {
+        int selectedId = channelSelector->getSelectedId();
+        
+        if (selectedId == 1) // "All Channels" selected
+        {
+            Array<int> allChannels;
+            for (int i = 0; i < availableChannels.size(); i++)
+                allChannels.add(availableChannels[i]);
+            processor->setSelectedChannels(allChannels);
+        }
+        else if (selectedId > 1) // Individual channel selected
+        {
+            Array<int> singleChannel;
+            singleChannel.add(selectedId - 2); // Convert back to 0-based index
+            processor->setSelectedChannels(singleChannel);
+        }
+    }
 }
 
 void ChannelSelector::buttonClicked(Button* button)
 {
+    if (processor == nullptr)
+        return;
+        
     if (button == selectAllButton.get())
     {
         // Select all channels
+        Array<int> allChannels;
+        for (int i = 0; i < availableChannels.size(); i++)
+            allChannels.add(availableChannels[i]);
+        processor->setSelectedChannels(allChannels);
+        channelSelector->setSelectedId(1); // Set to "All Channels"
     }
     else if (button == selectNoneButton.get())
     {
-        // Select no channels  
+        // Select no channels
+        Array<int> noChannels;
+        processor->setSelectedChannels(noChannels);
+        channelSelector->setSelectedId(0); // Deselect all
     }
 }
 
 void ChannelSelector::updateChannelList()
 {
-    // Update available channels
+    channelSelector->clear();
+    availableChannels.clear();
+    
+    if (processor == nullptr)
+        return;
+    
+    // Get the number of available input channels
+    int numChannels = processor->getNumInputs();
+    
+    if (numChannels == 0)
+    {
+        channelSelector->addItem("No channels available", 1);
+        channelSelector->setEnabled(false);
+        return;
+    }
+    
+    channelSelector->setEnabled(true);
+    
+    // Add "All Channels" option
+    channelSelector->addItem("All Channels", 1);
+    
+    // Add individual channels
+    for (int i = 0; i < numChannels; i++)
+    {
+        String channelName = "Channel " + String(i + 1);
+        channelSelector->addItem(channelName, i + 2); // Start from ID 2
+        availableChannels.add(i);
+    }
+    
+    // Set default selection to "All Channels"
+    channelSelector->setSelectedId(1);
+    
+    // Update processor with all channels selected by default
+    Array<int> allChannels;
+    for (int i = 0; i < numChannels; i++)
+        allChannels.add(i);
+    processor->setSelectedChannels(allChannels);
 }
 
 void ChannelSelector::setSelectedChannels(Array<int> channels)
 {
-    // Set selected channels
+    if (channels.isEmpty())
+    {
+        channelSelector->setSelectedId(0); // No selection
+        return;
+    }
+    
+    // Check if all available channels are selected
+    bool allSelected = true;
+    for (int i = 0; i < availableChannels.size(); i++)
+    {
+        if (!channels.contains(availableChannels[i]))
+        {
+            allSelected = false;
+            break;
+        }
+    }
+    
+    if (allSelected && channels.size() == availableChannels.size())
+    {
+        channelSelector->setSelectedId(1); // "All Channels"
+    }
+    else if (channels.size() == 1)
+    {
+        // Single channel selected
+        int channelIndex = channels[0];
+        channelSelector->setSelectedId(channelIndex + 2); // Convert to ComboBox ID
+    }
+    else
+    {
+        // Multiple channels selected, show "All Channels" for simplicity
+        channelSelector->setSelectedId(1);
+    }
 }
 
 // TriggerSourceTable implementation
@@ -865,12 +960,14 @@ void TriggeredLFPCanvas::resized()
 
 void TriggeredLFPCanvas::refreshState()
 {
+    channelSelector->updateChannelList();
     display->updateAllPlots();
 }
 
 void TriggeredLFPCanvas::beginAnimation()
 {
     acquisitionIsActive = true;
+    channelSelector->updateChannelList();
 }
 
 void TriggeredLFPCanvas::endAnimation()
@@ -880,6 +977,7 @@ void TriggeredLFPCanvas::endAnimation()
 
 void TriggeredLFPCanvas::refresh()
 {
+    channelSelector->updateChannelList();
     display->updateAllPlots();
 }
 
