@@ -41,7 +41,69 @@ enum DisplayMode
 };
 
 /**
-    Options bar for controlling display parameters
+    Channel selector component for LFP viewer
+*/
+class ChannelSelector : public Component,
+                       public ComboBox::Listener,
+                       public Button::Listener
+{
+public:
+    ChannelSelector(TriggeredLFPViewer* processor);
+    ~ChannelSelector() {}
+
+    void paint(Graphics& g) override;
+    void resized() override;
+    
+    void comboBoxChanged(ComboBox* comboBoxThatHasChanged) override;
+    void buttonClicked(Button* button) override;
+    
+    void updateChannelList();
+    void setSelectedChannels(Array<int> channels);
+
+private:
+    TriggeredLFPViewer* processor;
+    
+    std::unique_ptr<ComboBox> channelSelector;
+    std::unique_ptr<UtilityButton> selectAllButton;
+    std::unique_ptr<UtilityButton> selectNoneButton;
+    
+    Array<int> availableChannels;
+    
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ChannelSelector);
+};
+
+/**
+    Trigger source configuration table
+*/
+class TriggerSourceTable : public Component,
+                          public TableListBoxModel
+{
+public:
+    TriggerSourceTable(TriggeredLFPViewer* processor);
+    ~TriggerSourceTable() {}
+
+    void paint(Graphics& g) override;
+    void resized() override;
+
+    // TableListBoxModel methods
+    int getNumRows() override;
+    void paintRowBackground(Graphics& g, int rowNumber, int width, int height, bool rowIsSelected) override;
+    void paintCell(Graphics& g, int rowNumber, int columnId, int width, int height, bool rowIsSelected) override;
+    Component* refreshComponentForCell(int rowNumber, int columnId, bool isRowSelected, Component* existingComponentToUpdate) override;
+
+    void updateContent();
+    void addTriggerSource();
+    void removeTriggerSource(int row);
+
+private:
+    TriggeredLFPViewer* processor;
+    std::unique_ptr<TableListBox> table;
+    
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TriggerSourceTable);
+};
+
+/**
+    Options bar for controlling display parameters and trigger settings
 */
 class LFPOptionsBar : public Component,
                      public Button::Listener,
@@ -74,6 +136,7 @@ private:
     TriggeredLFPCanvas* canvas;
     TriggeredLFPDisplay* display;
 
+    // Original display controls
     std::unique_ptr<UtilityButton> clearButton;
     std::unique_ptr<UtilityButton> saveButton;
     std::unique_ptr<UtilityButton> autoScaleButton;
@@ -89,6 +152,18 @@ private:
     std::unique_ptr<Label> gridSizeLabel;
     std::unique_ptr<Label> amplitudeLabel;
     std::unique_ptr<Label> timeLabel;
+
+    // Parameter controls moved from editor
+    std::unique_ptr<ComboBox> preWindowSelector;
+    std::unique_ptr<ComboBox> postWindowSelector;
+    std::unique_ptr<ComboBox> maxTrialsSelector;
+    
+    std::unique_ptr<Label> preWindowLabel;
+    std::unique_ptr<Label> postWindowLabel;
+    std::unique_ptr<Label> maxTrialsLabel;
+
+    // Action buttons moved from editor
+    std::unique_ptr<UtilityButton> addTriggerButton;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LFPOptionsBar);
 };
@@ -275,6 +350,12 @@ public:
     /** Gets the display component */
     TriggeredLFPDisplay* getDisplay() { return display.get(); }
 
+    /** Gets the processor */
+    TriggeredLFPViewer* getProcessor() { return processor; }
+
+    /** Gets the trigger source table */
+    TriggerSourceTable* getTriggerSourceTable() { return triggerSourceTable.get(); }
+
     /** Timer callback for periodic updates */
     void timerCallback() override;
 
@@ -283,6 +364,8 @@ private:
 
     std::unique_ptr<LFPOptionsBar> optionsBar;
     std::unique_ptr<TriggeredLFPDisplay> display;
+    std::unique_ptr<ChannelSelector> channelSelector;
+    std::unique_ptr<TriggerSourceTable> triggerSourceTable;
 
     bool acquisitionIsActive;
 

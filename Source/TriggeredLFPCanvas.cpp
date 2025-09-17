@@ -24,6 +24,147 @@
 #include "TriggeredLFPCanvas.h"
 #include "TriggeredLFPViewer.h"
 
+// ChannelSelector implementation
+ChannelSelector::ChannelSelector(TriggeredLFPViewer* processor_) : processor(processor_)
+{
+    channelSelector = std::make_unique<ComboBox>("Channel Selector");
+    channelSelector->addListener(this);
+    addAndMakeVisible(channelSelector.get());
+
+    selectAllButton = std::make_unique<UtilityButton>("All");
+    selectAllButton->addListener(this);
+    addAndMakeVisible(selectAllButton.get());
+
+    selectNoneButton = std::make_unique<UtilityButton>("None");
+    selectNoneButton->addListener(this);
+    addAndMakeVisible(selectNoneButton.get());
+}
+
+void ChannelSelector::paint(Graphics& g)
+{
+    g.setColour(Colours::darkgrey);
+    g.fillRect(getLocalBounds());
+    
+    g.setColour(Colours::white);
+    g.setFont(12.0f);
+    g.drawText("Channels:", 5, 5, 80, 20, Justification::left);
+}
+
+void ChannelSelector::resized()
+{
+    int yPos = 25;
+    selectAllButton->setBounds(5, yPos, 40, 20);
+    selectNoneButton->setBounds(50, yPos, 40, 20);
+    channelSelector->setBounds(5, yPos + 25, getWidth() - 10, 20);
+}
+
+void ChannelSelector::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
+{
+    // Handle channel selection
+}
+
+void ChannelSelector::buttonClicked(Button* button)
+{
+    if (button == selectAllButton.get())
+    {
+        // Select all channels
+    }
+    else if (button == selectNoneButton.get())
+    {
+        // Select no channels  
+    }
+}
+
+void ChannelSelector::updateChannelList()
+{
+    // Update available channels
+}
+
+void ChannelSelector::setSelectedChannels(Array<int> channels)
+{
+    // Set selected channels
+}
+
+// TriggerSourceTable implementation
+TriggerSourceTable::TriggerSourceTable(TriggeredLFPViewer* processor_) : processor(processor_)
+{
+    table = std::make_unique<TableListBox>("Trigger Sources", this);
+    table->getHeader().addColumn("Name", 1, 100);
+    table->getHeader().addColumn("Line", 2, 50);
+    table->getHeader().addColumn("Type", 3, 80);
+    table->setMultipleSelectionEnabled(false);
+    addAndMakeVisible(table.get());
+}
+
+void TriggerSourceTable::paint(Graphics& g)
+{
+    g.setColour(Colours::darkgrey);
+    g.fillRect(getLocalBounds());
+}
+
+void TriggerSourceTable::resized()
+{
+    table->setBounds(getLocalBounds());
+}
+
+int TriggerSourceTable::getNumRows()
+{
+    return processor->getTriggerSources().size();
+}
+
+void TriggerSourceTable::paintRowBackground(Graphics& g, int rowNumber, int width, int height, bool rowIsSelected)
+{
+    if (rowIsSelected)
+        g.fillAll(Colours::lightblue);
+    else
+        g.fillAll(Colours::white);
+}
+
+void TriggerSourceTable::paintCell(Graphics& g, int rowNumber, int columnId, int width, int height, bool rowIsSelected)
+{
+    g.setColour(Colours::black);
+    g.setFont(12.0f);
+    
+    auto sources = processor->getTriggerSources();
+    if (rowNumber < sources.size())
+    {
+        auto source = sources[rowNumber];
+        String text;
+        
+        switch (columnId)
+        {
+            case 1: text = source->name; break;
+            case 2: text = String(source->line); break;
+            case 3: text = source->type == TTL_TRIGGER ? "TTL" : 
+                          (source->type == MSG_TRIGGER ? "MSG" : "TTL+MSG"); break;
+        }
+        
+        g.drawText(text, 5, 0, width - 10, height, Justification::left);
+    }
+}
+
+Component* TriggerSourceTable::refreshComponentForCell(int rowNumber, int columnId, bool isRowSelected, Component* existingComponentToUpdate)
+{
+    return nullptr;
+}
+
+void TriggerSourceTable::updateContent()
+{
+    table->updateContent();
+}
+
+void TriggerSourceTable::addTriggerSource()
+{
+    processor->addTriggerSource(0, TTL_TRIGGER);
+    updateContent();
+}
+
+void TriggerSourceTable::removeTriggerSource(int row)
+{
+    processor->removeTriggerSource(row);
+    updateContent();
+}
+
 // LFPOptionsBar implementation
 LFPOptionsBar::LFPOptionsBar(TriggeredLFPCanvas* canvas_, TriggeredLFPDisplay* display_)
     : canvas(canvas_), display(display_)
@@ -39,6 +180,48 @@ LFPOptionsBar::LFPOptionsBar(TriggeredLFPCanvas* canvas_, TriggeredLFPDisplay* d
     autoScaleButton = std::make_unique<UtilityButton>("AUTO");
     autoScaleButton->addListener(this);
     addAndMakeVisible(autoScaleButton.get());
+
+    // Parameter controls moved from editor
+    preWindowLabel = std::make_unique<Label>("Pre Window Label", "Pre (ms):");
+    addAndMakeVisible(preWindowLabel.get());
+
+    preWindowSelector = std::make_unique<ComboBox>("Pre Window");
+    preWindowSelector->addItem("100", 100);
+    preWindowSelector->addItem("250", 250);
+    preWindowSelector->addItem("500", 500);
+    preWindowSelector->addItem("1000", 1000);
+    preWindowSelector->setSelectedId(500);
+    preWindowSelector->addListener(this);
+    addAndMakeVisible(preWindowSelector.get());
+
+    postWindowLabel = std::make_unique<Label>("Post Window Label", "Post (ms):");
+    addAndMakeVisible(postWindowLabel.get());
+
+    postWindowSelector = std::make_unique<ComboBox>("Post Window");
+    postWindowSelector->addItem("500", 500);
+    postWindowSelector->addItem("1000", 1000);
+    postWindowSelector->addItem("2000", 2000);
+    postWindowSelector->addItem("5000", 5000);
+    postWindowSelector->setSelectedId(2000);
+    postWindowSelector->addListener(this);
+    addAndMakeVisible(postWindowSelector.get());
+
+    maxTrialsLabel = std::make_unique<Label>("Max Trials Label", "Max Trials:");
+    addAndMakeVisible(maxTrialsLabel.get());
+
+    maxTrialsSelector = std::make_unique<ComboBox>("Max Trials");
+    maxTrialsSelector->addItem("5", 5);
+    maxTrialsSelector->addItem("10", 10);
+    maxTrialsSelector->addItem("20", 20);
+    maxTrialsSelector->addItem("50", 50);
+    maxTrialsSelector->setSelectedId(10);
+    maxTrialsSelector->addListener(this);
+    addAndMakeVisible(maxTrialsSelector.get());
+
+    // Action button moved from editor
+    addTriggerButton = std::make_unique<UtilityButton>("Add Trigger");
+    addTriggerButton->addListener(this);
+    addAndMakeVisible(addTriggerButton.get());
 
     displayModeSelector = std::make_unique<ComboBox>("Display Mode");
     displayModeSelector->addItem("Individual", INDIVIDUAL_TRACES);
@@ -101,36 +284,58 @@ void LFPOptionsBar::resized()
     int buttonWidth = 60;
     int comboWidth = 80;
     int sliderWidth = 100;
+    int yPos1 = 5;  // First row
+    int yPos2 = 30; // Second row
 
-    clearButton->setBounds(xPos, 5, buttonWidth, 20);
+    // First row - buttons and basic display controls
+    clearButton->setBounds(xPos, yPos1, buttonWidth, 20);
     xPos += buttonWidth + spacing;
 
-    saveButton->setBounds(xPos, 5, buttonWidth, 20);
+    saveButton->setBounds(xPos, yPos1, buttonWidth, 20);
+    xPos += buttonWidth + spacing;
+
+    autoScaleButton->setBounds(xPos, yPos1, buttonWidth, 20);
     xPos += buttonWidth + spacing * 2;
 
-    autoScaleButton->setBounds(xPos, 5, buttonWidth, 20);
-    xPos += buttonWidth + spacing * 2;
-
-    displayModeLabel->setBounds(xPos, 5, 40, 20);
+    displayModeLabel->setBounds(xPos, yPos1, 40, 20);
     xPos += 45;
-    displayModeSelector->setBounds(xPos, 5, comboWidth, 20);
+    displayModeSelector->setBounds(xPos, yPos1, comboWidth, 20);
     xPos += comboWidth + spacing;
 
-    gridSizeLabel->setBounds(xPos, 5, 35, 20);
+    gridSizeLabel->setBounds(xPos, yPos1, 35, 20);
     xPos += 40;
-    gridRowsSelector->setBounds(xPos, 5, 40, 20);
+    gridRowsSelector->setBounds(xPos, yPos1, 40, 20);
     xPos += 45;
-    gridColsSelector->setBounds(xPos, 5, 40, 20);
+    gridColsSelector->setBounds(xPos, yPos1, 40, 20);
     xPos += 45 + spacing;
 
-    amplitudeLabel->setBounds(xPos, 5, 30, 20);
-    xPos += 35;
-    amplitudeScaleSlider->setBounds(xPos, 5, sliderWidth, 20);
+    amplitudeLabel->setBounds(xPos, yPos1, 35, 20);
+    xPos += 40;
+    amplitudeScaleSlider->setBounds(xPos, yPos1, sliderWidth, 20);
     xPos += sliderWidth + spacing;
 
-    timeLabel->setBounds(xPos, 5, 30, 20);
-    xPos += 35;
-    timeScaleSlider->setBounds(xPos, 5, sliderWidth, 20);
+    timeLabel->setBounds(xPos, yPos1, 35, 20);
+    xPos += 40;
+    timeScaleSlider->setBounds(xPos, yPos1, sliderWidth, 20);
+
+    // Second row - parameter controls moved from editor
+    xPos = 10;
+    preWindowLabel->setBounds(xPos, yPos2, 60, 20);
+    xPos += 65;
+    preWindowSelector->setBounds(xPos, yPos2, comboWidth, 20);
+    xPos += comboWidth + spacing;
+
+    postWindowLabel->setBounds(xPos, yPos2, 60, 20);
+    xPos += 65;
+    postWindowSelector->setBounds(xPos, yPos2, comboWidth, 20);
+    xPos += comboWidth + spacing;
+
+    maxTrialsLabel->setBounds(xPos, yPos2, 70, 20);
+    xPos += 75;
+    maxTrialsSelector->setBounds(xPos, yPos2, comboWidth, 20);
+    xPos += comboWidth + spacing * 2;
+
+    addTriggerButton->setBounds(xPos, yPos2, buttonWidth + 20, 20);
 }
 
 void LFPOptionsBar::buttonClicked(Button* button)
@@ -147,6 +352,13 @@ void LFPOptionsBar::buttonClicked(Button* button)
     {
         display->setAutoScale(true);
     }
+    else if (button == addTriggerButton.get())
+    {
+        // Get processor through canvas
+        auto processor = canvas->getProcessor();
+        processor->addTriggerSource(0, TTL_TRIGGER);
+        canvas->getTriggerSourceTable()->updateContent();
+    }
 }
 
 void LFPOptionsBar::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
@@ -159,6 +371,21 @@ void LFPOptionsBar::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
              comboBoxThatHasChanged == gridColsSelector.get())
     {
         display->setGridSize(gridRowsSelector->getSelectedId(), gridColsSelector->getSelectedId());
+    }
+    else if (comboBoxThatHasChanged == preWindowSelector.get())
+    {
+        auto processor = canvas->getProcessor();
+        processor->getParameter("pre_ms")->setNextValue(preWindowSelector->getSelectedId());
+    }
+    else if (comboBoxThatHasChanged == postWindowSelector.get())
+    {
+        auto processor = canvas->getProcessor();
+        processor->getParameter("post_ms")->setNextValue(postWindowSelector->getSelectedId());
+    }
+    else if (comboBoxThatHasChanged == maxTrialsSelector.get())
+    {
+        auto processor = canvas->getProcessor();
+        processor->getParameter("max_trials")->setNextValue(maxTrialsSelector->getSelectedId());
     }
 }
 
@@ -604,6 +831,12 @@ TriggeredLFPCanvas::TriggeredLFPCanvas(TriggeredLFPViewer* processor_)
     optionsBar = std::make_unique<LFPOptionsBar>(this, display.get());
     addAndMakeVisible(optionsBar.get());
 
+    channelSelector = std::make_unique<ChannelSelector>(processor);
+    addAndMakeVisible(channelSelector.get());
+
+    triggerSourceTable = std::make_unique<TriggerSourceTable>(processor);
+    addAndMakeVisible(triggerSourceTable.get());
+
     Timer::startTimer(50); // 20 Hz refresh rate
 }
 
@@ -614,10 +847,20 @@ void TriggeredLFPCanvas::paint(Graphics& g)
 
 void TriggeredLFPCanvas::resized()
 {
-    int optionsHeight = 30;
+    int optionsHeight = 60;  // Increased height for two rows of controls
+    int sidebarWidth = 250;  // Width for channel selector and trigger table
     
     optionsBar->setBounds(0, 0, getWidth(), optionsHeight);
-    display->setBounds(0, optionsHeight, getWidth(), getHeight() - optionsHeight);
+    
+    // Left sidebar for channel selector and trigger source table
+    int remainingHeight = getHeight() - optionsHeight;
+    int halfHeight = remainingHeight / 2;
+    
+    channelSelector->setBounds(0, optionsHeight, sidebarWidth, halfHeight);
+    triggerSourceTable->setBounds(0, optionsHeight + halfHeight, sidebarWidth, halfHeight);
+    
+    // Main display area takes the remaining space
+    display->setBounds(sidebarWidth, optionsHeight, getWidth() - sidebarWidth, remainingHeight);
 }
 
 void TriggeredLFPCanvas::refreshState()

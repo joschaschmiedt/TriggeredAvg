@@ -32,101 +32,6 @@ class LFPTriggerSource;
 class Visualizer;
 
 /**
-    Channel selector component for LFP viewer
-*/
-class ChannelSelector : public Component,
-                       public ComboBox::Listener,
-                       public Button::Listener
-{
-public:
-    ChannelSelector(TriggeredLFPViewer* processor);
-    ~ChannelSelector() {}
-
-    void paint(Graphics& g) override;
-    void resized() override;
-    
-    void comboBoxChanged(ComboBox* comboBoxThatHasChanged) override;
-    void buttonClicked(Button* button) override;
-    
-    void updateChannelList();
-    void setSelectedChannels(Array<int> channels);
-
-private:
-    TriggeredLFPViewer* processor;
-    
-    std::unique_ptr<ComboBox> channelSelector;
-    std::unique_ptr<UtilityButton> selectAllButton;
-    std::unique_ptr<UtilityButton> selectNoneButton;
-    
-    Array<int> availableChannels;
-    
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ChannelSelector);
-};
-
-/**
-    Display settings component
-*/
-class DisplaySettings : public Component,
-                       public ComboBox::Listener,
-                       public Slider::Listener
-{
-public:
-    DisplaySettings(TriggeredLFPViewer* processor);
-    ~DisplaySettings() {}
-
-    void paint(Graphics& g) override;
-    void resized() override;
-    
-    void comboBoxChanged(ComboBox* comboBoxThatHasChanged) override;
-    void sliderValueChanged(Slider* slider) override;
-
-private:
-    TriggeredLFPViewer* processor;
-    
-    std::unique_ptr<ComboBox> gridRowsSelector;
-    std::unique_ptr<ComboBox> gridColsSelector;
-    std::unique_ptr<ComboBox> displayModeSelector;
-    std::unique_ptr<Slider> amplitudeScaleSlider;
-    
-    std::unique_ptr<Label> gridRowsLabel;
-    std::unique_ptr<Label> gridColsLabel;
-    std::unique_ptr<Label> displayModeLabel;
-    std::unique_ptr<Label> amplitudeScaleLabel;
-    
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DisplaySettings);
-};
-
-/**
-    Trigger source configuration table
-*/
-class TriggerSourceTable : public Component,
-                          public TableListBoxModel
-{
-public:
-    TriggerSourceTable(TriggeredLFPViewer* processor);
-    ~TriggerSourceTable() {}
-
-    void paint(Graphics& g) override;
-    void resized() override;
-
-    // TableListBoxModel methods
-    int getNumRows() override;
-    void paintRowBackground(Graphics& g, int rowNumber, int width, int height, bool rowIsSelected) override;
-    void paintCell(Graphics& g, int rowNumber, int columnId, int width, int height, bool rowIsSelected) override;
-    Component* refreshComponentForCell(int rowNumber, int columnId, bool isRowSelected, Component* existingComponentToUpdate) override;
-
-    void updateContent();
-    void addTriggerSource();
-    void removeTriggerSource(int row);
-
-private:
-    TriggeredLFPViewer* processor;
-    std::unique_ptr<TableListBox> table;
-    
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TriggerSourceTable);
-};
-
-/**
 
     User interface for the TriggeredLFPViewer processor.
 
@@ -166,26 +71,9 @@ private:
     /** Pointer to the actual processor */
     TriggeredLFPViewer* processor;
 
-    // Parameter controls
-    std::unique_ptr<ComboBox> preWindowSelector;
-    std::unique_ptr<ComboBox> postWindowSelector;
-    std::unique_ptr<ComboBox> maxTrialsSelector;
-    
-    std::unique_ptr<Label> preWindowLabel;
-    std::unique_ptr<Label> postWindowLabel;
-    std::unique_ptr<Label> maxTrialsLabel;
-
-    // Interface components
-    std::unique_ptr<ChannelSelector> channelSelector;
-    std::unique_ptr<DisplaySettings> displaySettings;
-    std::unique_ptr<TriggerSourceTable> triggerSourceTable;
-    
-    // Action buttons
-    std::unique_ptr<UtilityButton> addTriggerButton;
+    // Action button for clearing data (keep minimal controls in editor)
     std::unique_ptr<UtilityButton> clearDataButton;
-    // Removed openCanvasButton - VisualizerEditor handles canvas opening automatically
 
-    void drawParameterControls(Graphics& g);
     void updateParameterControls();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TriggeredLFPEditor);
