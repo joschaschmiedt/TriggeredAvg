@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5.0)
+cmake_minimum_required(VERSION 3.15.0)
 if (NOT DEFINED GUI_BASE_DIR)
 	if (DEFINED ENV{GUI_BASE_DIR})
 		set(GUI_BASE_DIR $ENV{GUI_BASE_DIR})
@@ -44,7 +44,7 @@ else()
 	add_library(${PLUGIN_NAME} SHARED ${SRC_FILES})
 endif()
 
-target_compile_features(${PLUGIN_NAME} PUBLIC cxx_auto_type cxx_generalized_initializers cxx_std_17)
+target_compile_features(${PLUGIN_NAME} PUBLIC cxx_auto_type cxx_generalized_initializers cxx_std_20)
 target_include_directories(${PLUGIN_NAME} PUBLIC ${GUI_BASE_DIR}/JuceLibraryCode ${GUI_BASE_DIR}/JuceLibraryCode/modules ${GUI_BASE_DIR}/Plugins/Headers ${GUI_COMMONLIB_DIR}/include)
 
 set(GUI_BIN_DIR ${GUI_BASE_DIR}/Build/${CONFIGURATION_FOLDER})
@@ -60,7 +60,7 @@ endif()
 #Libraries and compiler options
 if(MSVC)
 	target_link_libraries(${PLUGIN_NAME} ${GUI_BIN_DIR}/open-ephys.lib)
-	target_compile_options(${PLUGIN_NAME} PRIVATE /sdl- /W0)
+	target_compile_options(${PLUGIN_NAME} PRIVATE /sdl /W4 /MP /external:W0 /external:anglebrackets)
 	
 	install(TARGETS ${PLUGIN_NAME} RUNTIME DESTINATION ${GUI_BIN_DIR}/plugins  CONFIGURATIONS ${CMAKE_CONFIGURATION_TYPES})
 

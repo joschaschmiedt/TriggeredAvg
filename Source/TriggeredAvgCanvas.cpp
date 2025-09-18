@@ -21,11 +21,12 @@
 
 */
 
-#include "TriggeredLFPCanvas.h"
-#include "TriggeredLFPViewer.h"
+#include "TriggeredAvgCanvas.h"
+#include "TriggeredAvgNode.h"
+using namespace TriggeredAverage;
 
 // ChannelSelector implementation
-ChannelSelector::ChannelSelector(TriggeredLFPViewer* processor_) : processor(processor_)
+ChannelSelector::ChannelSelector(TriggeredAvgNode* processor_) : processor(processor_)
 {
     channelSelector = std::make_unique<ComboBox>("Channel Selector");
     channelSelector->addListener(this);
@@ -77,6 +78,19 @@ void ChannelSelector::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
             singleChannel.add(selectedId - 2); // Convert back to 0-based index
             processor->setSelectedChannels(singleChannel);
         }
+        
+        // Update plot assignments when channels change
+        Component* parent = getParentComponent();
+        while (parent != nullptr)
+        {
+            auto canvas = dynamic_cast<TriggeredAvgCanvas*>(parent);
+            if (canvas != nullptr)
+            {
+                canvas->updatePlotAssignments();
+                break;
+            }
+            parent = parent->getParentComponent();
+        }
     }
 }
 
@@ -100,6 +114,19 @@ void ChannelSelector::buttonClicked(Button* button)
         Array<int> noChannels;
         processor->setSelectedChannels(noChannels);
         channelSelector->setSelectedId(0); // Deselect all
+    }
+    
+    // Update plot assignments when channels change
+    Component* parent = getParentComponent();
+    while (parent != nullptr)
+    {
+        auto canvas = dynamic_cast<TriggeredAvgCanvas*>(parent);
+        if (canvas != nullptr)
+        {
+            canvas->updatePlotAssignments();
+            break;
+        }
+        parent = parent->getParentComponent();
     }
 }
 
@@ -181,7 +208,7 @@ void ChannelSelector::setSelectedChannels(Array<int> channels)
 }
 
 // TriggerSourceTable implementation
-TriggerSourceTable::TriggerSourceTable(TriggeredLFPViewer* processor_) : processor(processor_)
+TriggerSourceTable::TriggerSourceTable(TriggeredAvgNode* processor_) : processor(processor_)
 {
     table = std::make_unique<TableListBox>("Trigger Sources", this);
     table->getHeader().addColumn("Name", 1, 100);
@@ -260,8 +287,8 @@ void TriggerSourceTable::removeTriggerSource(int row)
     updateContent();
 }
 
-// LFPOptionsBar implementation
-LFPOptionsBar::LFPOptionsBar(TriggeredLFPCanvas* canvas_, TriggeredLFPDisplay* display_)
+// CanvasOptionsBar implementation
+CanvasOptionsBar::CanvasOptionsBar(TriggeredAvgCanvas* canvas_, TriggeredAvgDisplay* display_)
     : canvas(canvas_), display(display_)
 {
     clearButton = std::make_unique<UtilityButton>("CLEAR");
@@ -367,12 +394,12 @@ LFPOptionsBar::LFPOptionsBar(TriggeredLFPCanvas* canvas_, TriggeredLFPDisplay* d
     addAndMakeVisible(timeLabel.get());
 }
 
-void LFPOptionsBar::paint(Graphics& g)
+void CanvasOptionsBar::paint(Graphics& g)
 {
     g.fillAll(Colours::darkgrey);
 }
 
-void LFPOptionsBar::resized()
+void CanvasOptionsBar::resized()
 {
     int xPos = 10;
     int spacing = 5;
@@ -433,7 +460,7 @@ void LFPOptionsBar::resized()
     addTriggerButton->setBounds(xPos, yPos2, buttonWidth + 20, 20);
 }
 
-void LFPOptionsBar::buttonClicked(Button* button)
+void CanvasOptionsBar::buttonClicked(Button* button)
 {
     if (button == clearButton.get())
     {
@@ -453,10 +480,11 @@ void LFPOptionsBar::buttonClicked(Button* button)
         auto processor = canvas->getProcessor();
         processor->addTriggerSource(0, TTL_TRIGGER);
         canvas->getTriggerSourceTable()->updateContent();
+        canvas->updatePlotAssignments(); // Add this line to assign new trigger source to plot
     }
 }
 
-void LFPOptionsBar::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
+void CanvasOptionsBar::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
 {
     if (comboBoxThatHasChanged == displayModeSelector.get())
     {
@@ -484,7 +512,7 @@ void LFPOptionsBar::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
     }
 }
 
-void LFPOptionsBar::sliderValueChanged(Slider* slider)
+void CanvasOptionsBar::sliderValueChanged(Slider* slider)
 {
     if (slider == amplitudeScaleSlider.get())
     {
@@ -497,14 +525,14 @@ void LFPOptionsBar::sliderValueChanged(Slider* slider)
 }
 
 // LFPPlot implementation
-LFPPlot::LFPPlot(TriggeredLFPDisplay* display_, int plotIndex_)
+SinglePlotPanel::SinglePlotPanel(TriggeredAvgDisplay* display_, int plotIndex_)
     : display(display_), plotIndex(plotIndex_), triggerSource(nullptr), channelIndex(-1),
       displayMode(INDIVIDUAL_TRACES), amplitudeScale(1.0f), timeScale(1.0f), 
       showGrid(true), yOffset(0.0f), yRange(1.0f), autoScale(true)
 {
 }
 
-void LFPPlot::paint(Graphics& g)
+void SinglePlotPanel::paint(Graphics& g)
 {
     g.fillAll(Colours::white);
     g.setColour(Colours::black);
@@ -543,101 +571,160 @@ void LFPPlot::paint(Graphics& g)
     drawLabels(g);
 }
 
-void LFPPlot::resized()
+void SinglePlotPanel::resized()
 {
     calculateDisplayRange();
 }
 
-void LFPPlot::mouseDown(const MouseEvent& event)
+void SinglePlotPanel::mouseDown(const MouseEvent& event)
 {
     // Handle mouse interactions
 }
 
-void LFPPlot::mouseDrag(const MouseEvent& event)
+void SinglePlotPanel::mouseDrag(const MouseEvent& event)
 {
     // Handle dragging for zoom/pan
 }
 
-void LFPPlot::mouseWheelMove(const MouseEvent& event, const MouseWheelDetails& wheel)
+void SinglePlotPanel::mouseWheelMove(const MouseEvent& event, const MouseWheelDetails& wheel)
 {
-    // Handle wheel zoom
+    // Zoom sensitivity factors
+    const float amplitudeZoomFactor = 1.1f;
+    const float timeZoomFactor = 1.1f;
+    
+    // Determine zoom direction
+    bool zoomIn = wheel.deltaY > 0;
+    
+    if (event.mods.isShiftDown())
+    {
+        // Shift + wheel = time scale zoom
+        if (zoomIn)
+            timeScale *= timeZoomFactor;
+        else
+            timeScale /= timeZoomFactor;
+        
+        // Constrain time scale to reasonable bounds
+        timeScale = jlimit(0.1f, 10.0f, timeScale);
+    }
+    else
+    {
+        // Default wheel = amplitude scale zoom
+        if (zoomIn)
+            amplitudeScale *= amplitudeZoomFactor;
+        else
+            amplitudeScale /= amplitudeZoomFactor;
+        
+        // Constrain amplitude scale to reasonable bounds
+        amplitudeScale = jlimit(0.1f, 20.0f, amplitudeScale);
+    }
+    
+    // Update display range and repaint
+    calculateDisplayRange();
+    repaint();
 }
 
-void LFPPlot::setTriggerSource(LFPTriggerSource* source)
+void SinglePlotPanel::setTriggerSource(TriggerSource* source)
 {
     triggerSource = source;
     updateData();
 }
 
-void LFPPlot::setChannel(int channelIndex_)
+void SinglePlotPanel::setChannel(int channelIndex_)
 {
     channelIndex = channelIndex_;
     updateData();
 }
 
-void LFPPlot::setDisplayMode(DisplayMode mode)
+void SinglePlotPanel::setDisplayMode(DisplayMode mode)
 {
     displayMode = mode;
     repaint();
 }
 
-void LFPPlot::setAmplitudeScale(float scale)
+void SinglePlotPanel::setAmplitudeScale(float scale)
 {
     amplitudeScale = scale;
     repaint();
 }
 
-void LFPPlot::setTimeScale(float scale)
+void SinglePlotPanel::setTimeScale(float scale)
 {
     timeScale = scale;
     repaint();
 }
 
-void LFPPlot::setShowGrid(bool show)
+void SinglePlotPanel::setShowGrid(bool show)
 {
     showGrid = show;
     repaint();
 }
 
-void LFPPlot::updateData()
+void SinglePlotPanel::updateData()
 {
     if (triggerSource == nullptr || channelIndex < 0)
         return;
 
-    auto dataBuffer = display->getProcessor()->getDataBuffer(triggerSource);
-    if (dataBuffer == nullptr)
+    auto trialBuffer = display->getProcessor()->getTrialBuffer(triggerSource);
+    if (trialBuffer == nullptr)
         return;
 
     // Update individual traces
     individualTraces.clear();
-    for (int trial = 0; trial < dataBuffer->getNumTrials(); ++trial)
+    for (int trial = 0; trial < trialBuffer->getNumTrials(); ++trial)
     {
-        individualTraces.add(dataBuffer->getTrialData(trial, channelIndex));
+        const ContTrialData* trialData = trialBuffer->getTrial(trial);
+        if (trialData != nullptr && channelIndex < trialData->getData().getNumChannels())
+        {
+            Array<float> channelData;
+            const auto& data = trialData->getData();
+            for (int sample = 0; sample < data.getNumSamples(); ++sample)
+            {
+                channelData.add(data.getSample(channelIndex, sample));
+            }
+            individualTraces.add(channelData);
+        }
     }
 
     // Update averaged trace
-    averagedTrace = dataBuffer->getAveragedData(channelIndex);
+    AudioBuffer<float> avgBuffer;
+    trialBuffer->getAveragedData(avgBuffer);
+    
+    averagedTrace.clear();
+    if (avgBuffer.getNumChannels() > channelIndex && avgBuffer.getNumSamples() > 0)
+    {
+        for (int sample = 0; sample < avgBuffer.getNumSamples(); ++sample)
+        {
+            averagedTrace.add(avgBuffer.getSample(channelIndex, sample));
+        }
+    }
 
     // Update time axis
     timeAxis.clear();
-    int totalSamples = dataBuffer->getTotalSamples();
-    
-    if (display->getProcessor()->getDataStreams().size() > 0)
+    if (trialBuffer->getNumTrials() > 0)
     {
-        float sampleRate = display->getProcessor()->getDataStreams()[0]->getSampleRate();
-        float preTimeMs = dataBuffer->getPreSamples() / sampleRate * 1000.0f;
-        
-        for (int i = 0; i < totalSamples; ++i)
+        const ContTrialData* firstTrial = trialBuffer->getTrial(0);
+        if (firstTrial != nullptr)
         {
-            float timeMs = -preTimeMs + (i / sampleRate * 1000.0f);
-            timeAxis.add(timeMs);
+            int totalSamples = firstTrial->getData().getNumSamples();
+            
+            if (display->getProcessor()->getDataStreams().size() > 0)
+            {
+                float sampleRate = display->getProcessor()->getDataStreams()[0]->getSampleRate();
+                float preTimeMs = display->getProcessor()->getPreWindowSizeMs();
+                
+                for (int i = 0; i < totalSamples; ++i)
+                {
+                    float timeMs = -preTimeMs + (i / sampleRate * 1000.0f);
+                    timeAxis.add(timeMs);
+                }
+            }
         }
     }
 
     repaint();
 }
 
-void LFPPlot::clear()
+void SinglePlotPanel::clear()
 {
     individualTraces.clear();
     averagedTrace.clear();
@@ -645,7 +732,7 @@ void LFPPlot::clear()
     repaint();
 }
 
-void LFPPlot::drawTrace(Graphics& g, const Array<float>& trace, Colour colour, float alpha)
+void SinglePlotPanel::drawTrace(Graphics& g, const Array<float>& trace, Colour colour, float alpha)
 {
     if (trace.size() < 2 || timeAxis.size() != trace.size())
         return;
@@ -673,7 +760,7 @@ void LFPPlot::drawTrace(Graphics& g, const Array<float>& trace, Colour colour, f
     g.strokePath(tracePath, PathStrokeType(1.0f));
 }
 
-void LFPPlot::drawGrid(Graphics& g)
+void SinglePlotPanel::drawGrid(Graphics& g)
 {
     g.setColour(Colours::lightgrey);
     
@@ -692,7 +779,7 @@ void LFPPlot::drawGrid(Graphics& g)
     }
 }
 
-void LFPPlot::drawAxes(Graphics& g)
+void SinglePlotPanel::drawAxes(Graphics& g)
 {
     g.setColour(Colours::black);
     
@@ -701,7 +788,7 @@ void LFPPlot::drawAxes(Graphics& g)
     g.drawLine(getWidth() / 4, 0, getWidth() / 4, getHeight()); // Y-axis (at trigger time)
 }
 
-void LFPPlot::drawLabels(Graphics& g)
+void SinglePlotPanel::drawLabels(Graphics& g)
 {
     g.setColour(Colours::black);
     g.setFont(10.0f);
@@ -716,10 +803,10 @@ void LFPPlot::drawLabels(Graphics& g)
     }
 }
 
-void LFPPlot::calculateDisplayRange()
+void SinglePlotPanel::calculateDisplayRange()
 {
     // Calculate appropriate Y range for display
-    float maxVal = 0.1f;
+    float maxVal = 100.0f;
     
     for (const auto& trace : individualTraces)
     {
@@ -740,8 +827,8 @@ void LFPPlot::calculateDisplayRange()
     yRange = maxVal * 1.2f; // Add 20% margin
 }
 
-// TriggeredLFPDisplay implementation
-TriggeredLFPDisplay::TriggeredLFPDisplay(TriggeredLFPCanvas* canvas_, TriggeredLFPViewer* processor_)
+// TriggeredAvgDisplay implementation
+TriggeredAvgDisplay::TriggeredAvgDisplay(TriggeredAvgCanvas* canvas_, TriggeredAvgNode* processor_)
     : canvas(canvas_), processor(processor_), gridRows(2), gridCols(2), maxPlots(4),
       preWindowMs(500), postWindowMs(2000), displayMode(INDIVIDUAL_TRACES),
       amplitudeScale(1.0f), timeScale(1.0f), autoScale(true), showGrid(true)
@@ -749,24 +836,24 @@ TriggeredLFPDisplay::TriggeredLFPDisplay(TriggeredLFPCanvas* canvas_, TriggeredL
     setupPlotGrid();
 }
 
-void TriggeredLFPDisplay::paint(Graphics& g)
+void TriggeredAvgDisplay::paint(Graphics& g)
 {
     g.fillAll(Colours::black);
 }
 
-void TriggeredLFPDisplay::resized()
+void TriggeredAvgDisplay::resized()
 {
     redistributePlots();
 }
 
-void TriggeredLFPDisplay::setWindowSizeMs(int preSizeMs, int postSizeMs)
+void TriggeredAvgDisplay::setWindowSizeMs(int preSizeMs, int postSizeMs)
 {
     preWindowMs = preSizeMs;
     postWindowMs = postSizeMs;
     updateAllPlots();
 }
 
-void TriggeredLFPDisplay::setGridSize(int rows, int cols)
+void TriggeredAvgDisplay::setGridSize(int rows, int cols)
 {
     gridRows = rows;
     gridCols = cols;
@@ -775,7 +862,7 @@ void TriggeredLFPDisplay::setGridSize(int rows, int cols)
     redistributePlots();
 }
 
-void TriggeredLFPDisplay::setDisplayMode(DisplayMode mode)
+void TriggeredAvgDisplay::setDisplayMode(DisplayMode mode)
 {
     displayMode = mode;
     for (auto plot : plots)
@@ -784,7 +871,7 @@ void TriggeredLFPDisplay::setDisplayMode(DisplayMode mode)
     }
 }
 
-void TriggeredLFPDisplay::setAmplitudeScale(float scale)
+void TriggeredAvgDisplay::setAmplitudeScale(float scale)
 {
     amplitudeScale = scale;
     for (auto plot : plots)
@@ -793,7 +880,7 @@ void TriggeredLFPDisplay::setAmplitudeScale(float scale)
     }
 }
 
-void TriggeredLFPDisplay::setTimeScale(float scale)
+void TriggeredAvgDisplay::setTimeScale(float scale)
 {
     timeScale = scale;
     for (auto plot : plots)
@@ -802,13 +889,13 @@ void TriggeredLFPDisplay::setTimeScale(float scale)
     }
 }
 
-void TriggeredLFPDisplay::setAutoScale(bool autoScale_)
+void TriggeredAvgDisplay::setAutoScale(bool autoScale_)
 {
     autoScale = autoScale_;
     // Implement auto-scaling logic
 }
 
-void TriggeredLFPDisplay::setShowGrid(bool show)
+void TriggeredAvgDisplay::setShowGrid(bool show)
 {
     showGrid = show;
     for (auto plot : plots)
@@ -817,7 +904,7 @@ void TriggeredLFPDisplay::setShowGrid(bool show)
     }
 }
 
-void TriggeredLFPDisplay::clear()
+void TriggeredAvgDisplay::clear()
 {
     for (auto plot : plots)
     {
@@ -825,7 +912,7 @@ void TriggeredLFPDisplay::clear()
     }
 }
 
-void TriggeredLFPDisplay::updateTriggerSourceData(LFPTriggerSource* source)
+void TriggeredAvgDisplay::updateTriggerSourceData(TriggerSource* source)
 {
     for (auto plot : plots)
     {
@@ -836,7 +923,7 @@ void TriggeredLFPDisplay::updateTriggerSourceData(LFPTriggerSource* source)
     }
 }
 
-void TriggeredLFPDisplay::updateAllPlots()
+void TriggeredAvgDisplay::updateAllPlots()
 {
     for (auto plot : plots)
     {
@@ -844,7 +931,7 @@ void TriggeredLFPDisplay::updateAllPlots()
     }
 }
 
-void TriggeredLFPDisplay::assignTriggerSourceToPlot(LFPTriggerSource* source, int plotIndex)
+void TriggeredAvgDisplay::assignTriggerSourceToPlot(TriggerSource* source, int plotIndex)
 {
     if (plotIndex >= 0 && plotIndex < plots.size())
     {
@@ -855,31 +942,31 @@ void TriggeredLFPDisplay::assignTriggerSourceToPlot(LFPTriggerSource* source, in
     }
 }
 
-void TriggeredLFPDisplay::saveToFile()
+void TriggeredAvgDisplay::saveToFile()
 {
     // Implement save functionality
 }
 
-DynamicObject TriggeredLFPDisplay::getInfo()
+DynamicObject TriggeredAvgDisplay::getInfo()
 {
     DynamicObject info;
     // Return display information
     return info;
 }
 
-void TriggeredLFPDisplay::setupPlotGrid()
+void TriggeredAvgDisplay::setupPlotGrid()
 {
     plots.clear();
     
     for (int i = 0; i < maxPlots; ++i)
     {
-        auto plot = new LFPPlot(this, i);
+        auto plot = new SinglePlotPanel(this, i);
         plots.add(plot);
         addAndMakeVisible(plot);
     }
 }
 
-void TriggeredLFPDisplay::redistributePlots()
+void TriggeredAvgDisplay::redistributePlots()
 {
     if (plots.isEmpty())
         return;
@@ -900,7 +987,7 @@ void TriggeredLFPDisplay::redistributePlots()
     }
 }
 
-LFPPlot* TriggeredLFPDisplay::getPlotForSourceAndChannel(LFPTriggerSource* source, int channel)
+SinglePlotPanel* TriggeredAvgDisplay::getPlotForSourceAndChannel(TriggerSource* source, int channel)
 {
     // Find or assign a plot for this source/channel combination
     for (auto plot : plots)
@@ -926,15 +1013,15 @@ LFPPlot* TriggeredLFPDisplay::getPlotForSourceAndChannel(LFPTriggerSource* sourc
 }
 
 // TriggeredLFPCanvas implementation
-TriggeredLFPCanvas::TriggeredLFPCanvas(TriggeredLFPViewer* processor_)
+TriggeredAvgCanvas::TriggeredAvgCanvas(TriggeredAvgNode* processor_)
     : Visualizer(processor_), processor(processor_), acquisitionIsActive(false)
 {
     processor->canvas = this;
 
-    display = std::make_unique<TriggeredLFPDisplay>(this, processor);
+    display = std::make_unique<TriggeredAvgDisplay>(this, processor);
     addAndMakeVisible(display.get());
 
-    optionsBar = std::make_unique<LFPOptionsBar>(this, display.get());
+    optionsBar = std::make_unique<CanvasOptionsBar>(this, display.get());
     addAndMakeVisible(optionsBar.get());
 
     channelSelector = std::make_unique<ChannelSelector>(processor);
@@ -943,15 +1030,15 @@ TriggeredLFPCanvas::TriggeredLFPCanvas(TriggeredLFPViewer* processor_)
     triggerSourceTable = std::make_unique<TriggerSourceTable>(processor);
     addAndMakeVisible(triggerSourceTable.get());
 
-    Timer::startTimer(50); // 20 Hz refresh rate
+    startTimer(50); // 20 Hz refresh rate
 }
 
-void TriggeredLFPCanvas::paint(Graphics& g)
+void TriggeredAvgCanvas::paint(Graphics& g)
 {
     g.fillAll(Colours::darkgrey);
 }
 
-void TriggeredLFPCanvas::resized()
+void TriggeredAvgCanvas::resized()
 {
     int optionsHeight = 60;  // Increased height for two rows of controls
     int sidebarWidth = 250;  // Width for channel selector and trigger table
@@ -969,40 +1056,90 @@ void TriggeredLFPCanvas::resized()
     display->setBounds(sidebarWidth, optionsHeight, getWidth() - sidebarWidth, remainingHeight);
 }
 
-void TriggeredLFPCanvas::refreshState()
+void TriggeredAvgCanvas::refreshState()
 {
     channelSelector->updateChannelList();
+    updatePlotAssignments(); // Add this line
     display->updateAllPlots();
 }
 
-void TriggeredLFPCanvas::beginAnimation()
+void TriggeredAvgCanvas::beginAnimation()
 {
     acquisitionIsActive = true;
     channelSelector->updateChannelList();
+    updatePlotAssignments(); // Add this line
 }
 
-void TriggeredLFPCanvas::endAnimation()
+void TriggeredAvgCanvas::endAnimation()
 {
     acquisitionIsActive = false;
 }
 
-void TriggeredLFPCanvas::refresh()
+void TriggeredAvgCanvas::refresh()
 {
     channelSelector->updateChannelList();
+    updatePlotAssignments(); // Add this line
     display->updateAllPlots();
 }
 
-void TriggeredLFPCanvas::setWindowSizeMs(int preSizeMs, int postSizeMs)
+void TriggeredAvgCanvas::setWindowSizeMs(int preSizeMs, int postSizeMs)
 {
     display->setWindowSizeMs(preSizeMs, postSizeMs);
 }
 
-void TriggeredLFPCanvas::newDataReceived(LFPTriggerSource* source)
+void TriggeredAvgCanvas::updatePlotAssignments()
+{
+    auto triggerSources = processor->getTriggerSources();
+    auto selectedChannels = processor->getSelectedChannels();
+    
+    int plotIndex = 0;
+    
+    // Clear existing assignments
+    for (int i = 0; i < display->getMaxPlots(); i++)
+    {
+        auto plot = display->getPlot(i);
+        if (plot != nullptr)
+        {
+            plot->setTriggerSource(nullptr);
+        }
+    }
+    
+    // Assign trigger sources to plots for each selected channel
+    for (auto* source : triggerSources)
+    {
+        for (int channel : selectedChannels)
+        {
+            if (plotIndex < display->getMaxPlots())
+            {
+                display->assignTriggerSourceToPlot(source, plotIndex);
+                display->getPlot(plotIndex)->setChannel(channel);
+                plotIndex++;
+            }
+        }
+    }
+}
+
+void TriggeredAvgCanvas::newDataReceived(TriggerSource* source)
 {
     // Always update display when new data is received, regardless of acquisition state
     // This ensures the plugin works even if canvas isn't in "acquisition mode"
     if (display != nullptr)
     {
+        // Auto-assign if not already assigned
+        auto plot = display->getPlotForSourceAndChannel(source, 0);
+        if (plot == nullptr)
+        {
+            // Find first available plot and assign this source
+            for (int i = 0; i < display->getMaxPlots(); i++)
+            {
+                if (display->getPlot(i) != nullptr && display->getPlot(i)->getTriggerSource() == nullptr)
+                {
+                    display->assignTriggerSourceToPlot(source, i);
+                    break;
+                }
+            }
+        }
+        
         display->updateTriggerSourceData(source);
         display->updateAllPlots(); // Also update all plots to be sure
         display->repaint(); // Force display repaint
@@ -1010,7 +1147,7 @@ void TriggeredLFPCanvas::newDataReceived(LFPTriggerSource* source)
     }
 }
 
-void TriggeredLFPCanvas::timerCallback()
+void TriggeredAvgCanvas::timerCallback()
 {
     if (acquisitionIsActive)
     {

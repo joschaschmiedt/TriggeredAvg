@@ -21,15 +21,16 @@
 
 */
 
-#include "TriggeredLFPEditor.h"
-#include "TriggeredLFPViewer.h"
-#include "TriggeredLFPCanvas.h"
+#include "TriggeredAvgEditor.h"
+#include "TriggeredAvgNode.h"
+#include "TriggeredAvgCanvas.h"
+using namespace TriggeredAverage;
 
 // TriggeredLFPEditor implementation
-TriggeredLFPEditor::TriggeredLFPEditor(GenericProcessor* parentNode) 
-    : VisualizerEditor(parentNode, "LFP", 200)  // Reduced width since we moved controls
+TriggeredAvgEditor::TriggeredAvgEditor(GenericProcessor* parentNode) 
+    : VisualizerEditor(parentNode, "Triggered Avg", 200)  // Reduced width since we moved controls
 {
-    processor = static_cast<TriggeredLFPViewer*>(parentNode);
+    processor = static_cast<TriggeredAvgNode*>(parentNode);
 
     // Keep only essential action button in the editor
     clearDataButton = std::make_unique<UtilityButton>("Clear Data");
@@ -37,22 +38,22 @@ TriggeredLFPEditor::TriggeredLFPEditor(GenericProcessor* parentNode)
     addAndMakeVisible(clearDataButton.get());
 }
 
-void TriggeredLFPEditor::collapsedStateChanged()
+void TriggeredAvgEditor::collapsedStateChanged()
 {
     // Update canvas if needed
 }
 
-void TriggeredLFPEditor::updateSettings()
+void TriggeredAvgEditor::updateSettings()
 {
     updateParameterControls();
 }
 
-void TriggeredLFPEditor::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
+void TriggeredAvgEditor::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
 {
     // No combo boxes in the editor anymore
 }
 
-void TriggeredLFPEditor::buttonClicked(Button* button)
+void TriggeredAvgEditor::buttonClicked(Button* button)
 {
     if (button == clearDataButton.get())
     {
@@ -60,22 +61,22 @@ void TriggeredLFPEditor::buttonClicked(Button* button)
     }
 }
 
-Visualizer* TriggeredLFPEditor::createNewCanvas()
+Visualizer* TriggeredAvgEditor::createNewCanvas()
 {
-    TriggeredLFPViewer* processor = static_cast<TriggeredLFPViewer*>(getProcessor());
+    TriggeredAvgNode* processor = static_cast<TriggeredAvgNode*>(getProcessor());
     
-    auto canvas = new TriggeredLFPCanvas(processor);
-    processor->canvas = canvas;
+    auto triggered_avg_canvas = new TriggeredAvgCanvas(processor);
+    processor->canvas = triggered_avg_canvas;
     
-    return canvas;
+    return triggered_avg_canvas;
 }
 
-void TriggeredLFPEditor::updateParameterControls()
+void TriggeredAvgEditor::updateParameterControls()
 {
     // Update parameter control values if needed
 }
 
-void TriggeredLFPEditor::resized()
+void TriggeredAvgEditor::resized()
 {
     int yPos = 30;
     int leftMargin = 10;

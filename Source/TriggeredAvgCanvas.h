@@ -24,13 +24,14 @@
 #ifndef TriggeredLFPCANVAS_H_
 #define TriggeredLFPCANVAS_H_
 
+#include "TriggeredAvgNode.h"
 #include <VisualizerWindowHeaders.h>
 
-#include "TriggeredLFPViewer.h"
-
-class LFPTriggerSource;
-class TriggeredLFPCanvas;
-class TriggeredLFPDisplay;
+namespace TriggeredAverage
+{
+class TriggerSource;
+class TriggeredAvgCanvas;
+class TriggeredAvgDisplay;
 
 enum DisplayMode
 {
@@ -44,110 +45,110 @@ enum DisplayMode
     Channel selector component for LFP viewer
 */
 class ChannelSelector : public Component,
-                       public ComboBox::Listener,
-                       public Button::Listener
+                        public ComboBox::Listener,
+                        public Button::Listener
 {
 public:
-    ChannelSelector(TriggeredLFPViewer* processor);
+    ChannelSelector (TriggeredAvgNode* processor);
     ~ChannelSelector() {}
 
-    void paint(Graphics& g) override;
+    void paint (Graphics& g) override;
     void resized() override;
-    
-    void comboBoxChanged(ComboBox* comboBoxThatHasChanged) override;
-    void buttonClicked(Button* button) override;
-    
+
+    void comboBoxChanged (ComboBox* comboBoxThatHasChanged) override;
+    void buttonClicked (Button* button) override;
+
     void updateChannelList();
-    void setSelectedChannels(Array<int> channels);
+    void setSelectedChannels (Array<int> channels);
 
 private:
-    TriggeredLFPViewer* processor;
-    
+    TriggeredAvgNode* processor;
+
     std::unique_ptr<ComboBox> channelSelector;
     std::unique_ptr<UtilityButton> selectAllButton;
     std::unique_ptr<UtilityButton> selectNoneButton;
-    
+
     Array<int> availableChannels;
-    
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ChannelSelector);
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChannelSelector);
 };
 
 /**
     Trigger source configuration table
 */
 class TriggerSourceTable : public Component,
-                          public TableListBoxModel
+                           public TableListBoxModel
 {
 public:
-    TriggerSourceTable(TriggeredLFPViewer* processor);
+    TriggerSourceTable (TriggeredAvgNode* processor);
     ~TriggerSourceTable() {}
 
-    void paint(Graphics& g) override;
+    void paint (Graphics& g) override;
     void resized() override;
 
     // TableListBoxModel methods
     int getNumRows() override;
-    void paintRowBackground(Graphics& g, int rowNumber, int width, int height, bool rowIsSelected) override;
-    void paintCell(Graphics& g, int rowNumber, int columnId, int width, int height, bool rowIsSelected) override;
-    Component* refreshComponentForCell(int rowNumber, int columnId, bool isRowSelected, Component* existingComponentToUpdate) override;
+    void paintRowBackground (Graphics& g, int rowNumber, int width, int height, bool rowIsSelected) override;
+    void paintCell (Graphics& g, int rowNumber, int columnId, int width, int height, bool rowIsSelected) override;
+    Component* refreshComponentForCell (int rowNumber, int columnId, bool isRowSelected, Component* existingComponentToUpdate) override;
 
     void updateContent();
     void addTriggerSource();
-    void removeTriggerSource(int row);
+    void removeTriggerSource (int row);
 
 private:
-    TriggeredLFPViewer* processor;
+    TriggeredAvgNode* processor;
     std::unique_ptr<TableListBox> table;
-    
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TriggerSourceTable);
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TriggerSourceTable);
 };
 
 /**
     Options bar for controlling display parameters and trigger settings
 */
-class LFPOptionsBar : public Component,
-                     public Button::Listener,
-                     public ComboBox::Listener,
-                     public Slider::Listener
+class CanvasOptionsBar : public Component,
+                         public Button::Listener,
+                         public ComboBox::Listener,
+                         public Slider::Listener
 {
 public:
     /** Constructor */
-    LFPOptionsBar(TriggeredLFPCanvas* canvas, TriggeredLFPDisplay* display);
+    CanvasOptionsBar (TriggeredAvgCanvas* canvas, TriggeredAvgDisplay* display);
 
     /** Destructor */
-    ~LFPOptionsBar() {}
+    ~CanvasOptionsBar() {}
 
     /** Component callback for rendering the background */
-    void paint(Graphics& g) override;
+    void paint (Graphics& g) override;
 
     /** Component callback for resizing */
     void resized() override;
 
     /** Button listener callback */
-    void buttonClicked(Button* button) override;
+    void buttonClicked (Button* button) override;
 
     /** ComboBox listener callback */
-    void comboBoxChanged(ComboBox* comboBoxThatHasChanged) override;
+    void comboBoxChanged (ComboBox* comboBoxThatHasChanged) override;
 
     /** Slider listener callback */
-    void sliderValueChanged(Slider* slider) override;
+    void sliderValueChanged (Slider* slider) override;
 
 private:
-    TriggeredLFPCanvas* canvas;
-    TriggeredLFPDisplay* display;
+    TriggeredAvgCanvas* canvas;
+    TriggeredAvgDisplay* display;
 
     // Original display controls
     std::unique_ptr<UtilityButton> clearButton;
     std::unique_ptr<UtilityButton> saveButton;
     std::unique_ptr<UtilityButton> autoScaleButton;
-    
+
     std::unique_ptr<ComboBox> displayModeSelector;
     std::unique_ptr<ComboBox> gridRowsSelector;
     std::unique_ptr<ComboBox> gridColsSelector;
-    
+
     std::unique_ptr<Slider> amplitudeScaleSlider;
     std::unique_ptr<Slider> timeScaleSlider;
-    
+
     std::unique_ptr<Label> displayModeLabel;
     std::unique_ptr<Label> gridSizeLabel;
     std::unique_ptr<Label> amplitudeLabel;
@@ -157,7 +158,7 @@ private:
     std::unique_ptr<ComboBox> preWindowSelector;
     std::unique_ptr<ComboBox> postWindowSelector;
     std::unique_ptr<ComboBox> maxTrialsSelector;
-    
+
     std::unique_ptr<Label> preWindowLabel;
     std::unique_ptr<Label> postWindowLabel;
     std::unique_ptr<Label> maxTrialsLabel;
@@ -165,117 +166,117 @@ private:
     // Action buttons moved from editor
     std::unique_ptr<UtilityButton> addTriggerButton;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LFPOptionsBar);
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CanvasOptionsBar);
 };
 
 /**
     Individual plot component for displaying LFP traces
 */
-class LFPPlot : public Component
+class SinglePlotPanel : public Component
 {
 public:
-    LFPPlot(TriggeredLFPDisplay* display, int plotIndex);
-    ~LFPPlot() {}
+    SinglePlotPanel (TriggeredAvgDisplay* display, int plotIndex);
+    ~SinglePlotPanel() {}
 
-    void paint(Graphics& g) override;
+    void paint (Graphics& g) override;
     void resized() override;
-    void mouseDown(const MouseEvent& event) override;
-    void mouseDrag(const MouseEvent& event) override;
-    void mouseWheelMove(const MouseEvent& event, const MouseWheelDetails& wheel) override;
+    void mouseDown (const MouseEvent& event) override;
+    void mouseDrag (const MouseEvent& event) override;
+    void mouseWheelMove (const MouseEvent& event, const MouseWheelDetails& wheel) override;
 
-    void setTriggerSource(LFPTriggerSource* source);
-    void setChannel(int channelIndex);
-    void setDisplayMode(DisplayMode mode);
-    void setAmplitudeScale(float scale);
-    void setTimeScale(float scale);
-    void setShowGrid(bool show);
-    
+    void setTriggerSource (TriggerSource* source);
+    void setChannel (int channelIndex);
+    void setDisplayMode (DisplayMode mode);
+    void setAmplitudeScale (float scale);
+    void setTimeScale (float scale);
+    void setShowGrid (bool show);
+
     void updateData();
     void clear();
 
-    LFPTriggerSource* getTriggerSource() const { return triggerSource; }
+    TriggerSource* getTriggerSource() const { return triggerSource; }
     int getChannel() const { return channelIndex; }
 
 private:
-    TriggeredLFPDisplay* display;
+    TriggeredAvgDisplay* display;
     int plotIndex;
-    
-    LFPTriggerSource* triggerSource;
+
+    TriggerSource* triggerSource;
     int channelIndex;
     DisplayMode displayMode;
     float amplitudeScale;
     float timeScale;
     bool showGrid;
-    
+
     // Data for display
     Array<Array<float>> individualTraces;
     Array<float> averagedTrace;
     Array<float> timeAxis;
-    
+
     // Display parameters
     float yOffset;
     float yRange;
     bool autoScale;
-    
-    void drawTrace(Graphics& g, const Array<float>& trace, Colour colour, float alpha = 1.0f);
-    void drawGrid(Graphics& g);
-    void drawAxes(Graphics& g);
-    void drawLabels(Graphics& g);
+
+    void drawTrace (Graphics& g, const Array<float>& trace, Colour colour, float alpha = 1.0f);
+    void drawGrid (Graphics& g);
+    void drawAxes (Graphics& g);
+    void drawLabels (Graphics& g);
     void calculateDisplayRange();
-    
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LFPPlot);
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SinglePlotPanel);
 };
 
 /**
     Main display component containing the grid of LFP plots
 */
-class TriggeredLFPDisplay : public Component
+class TriggeredAvgDisplay : public Component
 {
 public:
     /** Constructor */
-    TriggeredLFPDisplay(TriggeredLFPCanvas* canvas, TriggeredLFPViewer* processor);
+    TriggeredAvgDisplay (TriggeredAvgCanvas* canvas, TriggeredAvgNode* processor);
 
     /** Destructor */
-    ~TriggeredLFPDisplay() {}
+    ~TriggeredAvgDisplay() {}
 
     /** Component callback for rendering the background */
-    void paint(Graphics& g) override;
+    void paint (Graphics& g) override;
 
     /** Component callback for resizing */
     void resized() override;
 
     /** Sets the window size for display */
-    void setWindowSizeMs(int preSizeMs, int postSizeMs);
+    void setWindowSizeMs (int preSizeMs, int postSizeMs);
 
     /** Sets the display grid dimensions */
-    void setGridSize(int rows, int cols);
+    void setGridSize (int rows, int cols);
 
     /** Sets the display mode for all plots */
-    void setDisplayMode(DisplayMode mode);
+    void setDisplayMode (DisplayMode mode);
 
     /** Sets the amplitude scale for all plots */
-    void setAmplitudeScale(float scale);
+    void setAmplitudeScale (float scale);
 
     /** Sets the time scale for all plots */
-    void setTimeScale(float scale);
+    void setTimeScale (float scale);
 
     /** Enable/disable auto-scaling */
-    void setAutoScale(bool autoScale);
+    void setAutoScale (bool autoScale);
 
     /** Show/hide grid lines */
-    void setShowGrid(bool show);
+    void setShowGrid (bool show);
 
     /** Clears all data from plots */
     void clear();
 
     /** Updates data for a specific trigger source */
-    void updateTriggerSourceData(LFPTriggerSource* source);
+    void updateTriggerSourceData (TriggerSource* source);
 
     /** Updates data for all plots */
     void updateAllPlots();
 
     /** Assigns a trigger source to a specific plot */
-    void assignTriggerSourceToPlot(LFPTriggerSource* source, int plotIndex);
+    void assignTriggerSourceToPlot (TriggerSource* source, int plotIndex);
 
     /** Saves current display to file */
     void saveToFile();
@@ -286,21 +287,28 @@ public:
     /** Sets up the plot grid based on available trigger sources and channels */
     void setupPlotGrid();
 
-    TriggeredLFPViewer* getProcessor() { return processor; }
+    /** Gets the maximum number of plots */
+    int getMaxPlots() const { return maxPlots; }
+
+    /** Gets a specific plot by index */
+    SinglePlotPanel* getPlot (int index) { return (index >= 0 && index < plots.size()) ? plots[index] : nullptr; }
+
+    TriggeredAvgNode* getProcessor() { return processor; }
+    SinglePlotPanel* getPlotForSourceAndChannel (TriggerSource* source, int channel);
 
 private:
-    TriggeredLFPCanvas* canvas;
-    TriggeredLFPViewer* processor;
+    TriggeredAvgCanvas* canvas;
+    TriggeredAvgNode* processor;
 
-    OwnedArray<LFPPlot> plots;
-    
+    OwnedArray<SinglePlotPanel> plots;
+
     int gridRows;
     int gridCols;
     int maxPlots;
-    
+
     int preWindowMs;
     int postWindowMs;
-    
+
     DisplayMode displayMode;
     float amplitudeScale;
     float timeScale;
@@ -308,26 +316,24 @@ private:
     bool showGrid;
 
     void redistributePlots();
-    LFPPlot* getPlotForSourceAndChannel(LFPTriggerSource* source, int channel);
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TriggeredLFPDisplay);
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TriggeredAvgDisplay);
 };
 
 /**
     Canvas for the Triggered LFP Viewer
 */
-class TriggeredLFPCanvas : public Visualizer,
-                          public Timer
+class TriggeredAvgCanvas : public ::Visualizer
 {
 public:
     /** Constructor */
-    TriggeredLFPCanvas(TriggeredLFPViewer* processor);
+    TriggeredAvgCanvas (TriggeredAvgNode* processor);
 
     /** Destructor */
-    ~TriggeredLFPCanvas() {}
+    ~TriggeredAvgCanvas() = default;
 
     /** Draws the canvas background */
-    void paint(Graphics& g) override;
+    void paint (Graphics& g) override;
 
     /** Called when the canvas is resized */
     void resized() override;
@@ -345,34 +351,38 @@ public:
     void refresh() override;
 
     /** Sets the window size for triggered data collection */
-    void setWindowSizeMs(int preSizeMs, int postSizeMs);
+    void setWindowSizeMs (int preSizeMs, int postSizeMs);
 
     /** Called when new triggered data is available */
-    void newDataReceived(LFPTriggerSource* source);
+    void newDataReceived (TriggerSource* source);
 
     /** Gets the display component */
-    TriggeredLFPDisplay* getDisplay() { return display.get(); }
+    TriggeredAvgDisplay* getDisplay() { return display.get(); }
 
     /** Gets the processor */
-    TriggeredLFPViewer* getProcessor() { return processor; }
+    TriggeredAvgNode* getProcessor() { return processor; }
 
     /** Gets the trigger source table */
     TriggerSourceTable* getTriggerSourceTable() { return triggerSourceTable.get(); }
+
+    /** Updates plot assignments based on current trigger sources and selected channels */
+    void updatePlotAssignments();
 
     /** Timer callback for periodic updates */
     void timerCallback() override;
 
 private:
-    TriggeredLFPViewer* processor;
+    TriggeredAvgNode* processor;
 
-    std::unique_ptr<LFPOptionsBar> optionsBar;
-    std::unique_ptr<TriggeredLFPDisplay> display;
+    std::unique_ptr<CanvasOptionsBar> optionsBar;
+    std::unique_ptr<TriggeredAvgDisplay> display;
     std::unique_ptr<ChannelSelector> channelSelector;
     std::unique_ptr<TriggerSourceTable> triggerSourceTable;
 
     bool acquisitionIsActive;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TriggeredLFPCanvas);
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TriggeredAvgCanvas);
 };
 
+} // namespace TriggeredAverage
 #endif // TriggeredLFPCANVAS_H_

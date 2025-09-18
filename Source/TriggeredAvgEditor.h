@@ -27,9 +27,12 @@
 #include <EditorHeaders.h>
 #include <VisualizerEditorHeaders.h>
 
-class TriggeredLFPViewer;
-class LFPTriggerSource;
 class Visualizer;
+
+namespace TriggeredAverage
+{
+class TriggeredAvgNode;
+class TriggerSource;
 
 /**
 
@@ -37,17 +40,16 @@ class Visualizer;
 
 */
 
-class TriggeredLFPEditor : public VisualizerEditor,
-                          public ComboBox::Listener,
-                          public Button::Listener
+class TriggeredAvgEditor : public VisualizerEditor,
+                           public ComboBox::Listener,
+                           public Button::Listener
 {
-
 public:
     /** Constructor */
-    TriggeredLFPEditor(GenericProcessor* parentNode);
+    TriggeredAvgEditor (GenericProcessor* parentNode);
 
     /** Destructor */
-    ~TriggeredLFPEditor() {}
+    ~TriggeredAvgEditor() {}
 
     /** Called when the tab becomes visible again */
     void collapsedStateChanged() override;
@@ -57,26 +59,27 @@ public:
 
     /** Opens the canvas window */
     Visualizer* createNewCanvas() override;
-    
+
     /** ComboBox listener callback */
-    void comboBoxChanged(ComboBox* comboBoxThatHasChanged) override;
+    void comboBoxChanged (ComboBox* comboBoxThatHasChanged) override;
 
     /** Button listener callback */
-    void buttonClicked(Button* button) override;
+    void buttonClicked (Button* button) override;
 
     /** Component callback for resizing */
     void resized() override;
 
 private:
     /** Pointer to the actual processor */
-    TriggeredLFPViewer* processor;
+    TriggeredAvgNode* processor;
 
     // Action button for clearing data (keep minimal controls in editor)
     std::unique_ptr<UtilityButton> clearDataButton;
 
     void updateParameterControls();
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TriggeredLFPEditor);
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TriggeredAvgEditor);
 };
 
+} // namespace TriggeredAverage
 #endif // __TriggeredLFPEditor_H_2C4C2D67__
