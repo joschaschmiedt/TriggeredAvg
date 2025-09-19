@@ -24,138 +24,15 @@
 #include "TriggeredAvgNode.h"
 #include "TriggeredAvgCanvas.h"
 #include "TriggeredAvgEditor.h"
-#include <../../plugin-GUI/Source/Processors/Settings/ContinuousChannel.h>
 
 using namespace TriggeredAverage;
 using enum TriggeredAverage::TriggerType;
 
 //==============================================================================
-// LFPRingBuffer implementation
-//==============================================================================
-ContRingBuffer::ContRingBuffer (int numChannels_, int bufferSize_)
-    : ringBuffer (numChannels_, bufferSize_),
-      fifo (bufferSize_),
-      currentSampleNumber (0),
-      writeIndex (0),
-      numChannels (numChannels_),
-      bufferSize (bufferSize_)
-{
-    sampleNumbers.malloc (bufferSize);
-
-    for (int i = 0; i < bufferSize; i++)
-        sampleNumbers[i] = 0;
-
-    ringBuffer.clear();
-}
-
-void ContRingBuffer::writeData (const AudioBuffer<float>& inputBuffer, int64 firstSampleNumber)
-{
-    const ScopedLock lock (writeLock);
-
-    int numSamples = inputBuffer.getNumSamples();
-
-    int startIndex1, blockSize1, startIndex2, blockSize2;
-    fifo.prepareToWrite (numSamples, startIndex1, blockSize1, startIndex2, blockSize2);
-
-    int actualSamples = blockSize1 + blockSize2;
-
-    // First block
-    if (blockSize1 > 0)
-    {
-        for (int ch = 0; ch < jmin (numChannels, inputBuffer.getNumChannels()); ++ch)
-        {
-            ringBuffer.copyFrom (ch, startIndex1, inputBuffer, ch, 0, blockSize1);
-        }
-
-        for (int i = 0; i < blockSize1; ++i)
-        {
-            sampleNumbers[startIndex1 + i] = firstSampleNumber + i;
-        }
-    }
-
-    // Second block (wraparound)
-    if (blockSize2 > 0)
-    {
-        for (int ch = 0; ch < jmin (numChannels, inputBuffer.getNumChannels()); ++ch)
-        {
-            ringBuffer.copyFrom (ch, startIndex2, inputBuffer, ch, blockSize1, blockSize2);
-        }
-
-        for (int i = 0; i < blockSize2; ++i)
-        {
-            sampleNumbers[startIndex2 + i] = firstSampleNumber + blockSize1 + i;
-        }
-    }
-
-    fifo.finishedWrite (actualSamples);
-    currentSampleNumber.store (firstSampleNumber + numSamples);
-}
-
-bool ContRingBuffer::readTriggeredData (int64 triggerSample,
-                                        int preSamples,
-                                        int postSamples,
-                                        Array<int> channelIndices,
-                                        AudioBuffer<float>& outputBuffer)
-{
-    const ScopedLock lock (writeLock);
-
-    int totalSamples = preSamples + postSamples;
-    int64 startSample = triggerSample - preSamples;
-
-    // Check if we have enough data
-    if (! hasEnoughDataForRead (triggerSample, preSamples))
-        return false;
-
-    // Find the start position in our ring buffer
-    int64 currentSample = currentSampleNumber.load();
-    int64 oldestSample = currentSample - fifo.getNumReady();
-
-    if (startSample < oldestSample)
-        return false; // Data too old
-
-    // Calculate ring buffer positions
-    int bufferStartPos = (int) ((startSample - oldestSample) % bufferSize);
-
-    outputBuffer.setSize (channelIndices.size(), totalSamples);
-
-    for (int outCh = 0; outCh < channelIndices.size(); ++outCh)
-    {
-        int sourceCh = channelIndices[outCh];
-        if (sourceCh >= numChannels)
-            continue;
-
-        for (int sample = 0; sample < totalSamples; ++sample)
-        {
-            int bufferPos = (bufferStartPos + sample) % bufferSize;
-            outputBuffer.setSample (outCh, sample, ringBuffer.getSample (sourceCh, bufferPos));
-        }
-    }
-
-    return true;
-}
-
-bool ContRingBuffer::hasEnoughDataForRead (int64 triggerSample, int preSamples) const
-{
-    int64 currentSample = currentSampleNumber.load();
-    int64 oldestSample = currentSample - fifo.getNumReady();
-    int64 requiredStartSample = triggerSample - preSamples;
-
-    return requiredStartSample >= oldestSample;
-}
-
-void ContRingBuffer::reset()
-{
-    const ScopedLock lock (writeLock);
-    fifo.reset();
-    ringBuffer.clear();
-    currentSampleNumber.store (0);
-}
-
-//==============================================================================
 // LFPTriggerDetector implementation
 //==============================================================================
-TriggerDetector::TriggerDetector (TriggeredAvgNode* viewer_, ContRingBuffer* buffer_)
-    : Thread ("LFP Trigger Detector"),
+TriggerDetector::TriggerDetector (TriggeredAvgNode* viewer_, MultiChannelRingBuffer* buffer_)
+    : Thread ("Trigger Detector"),
       viewer (viewer_),
       ringBuffer (buffer_),
       newTriggerEvent (false)
@@ -247,11 +124,8 @@ void TriggerDetector::processTriggerEvent (const TriggerEvent& event)
     }
 }
 
-//==============================================================================
-// LFPCaptureManager implementation
-//==============================================================================
-CaptureManager::CaptureManager (ContRingBuffer* buffer_)
-    : Thread ("LFP Capture Manager"),
+CaptureManager::CaptureManager (MultiChannelRingBuffer* buffer_)
+    : Thread ("Trigger Extractor "),
       ringBuffer (buffer_),
       newRequestEvent (false)
 {
@@ -467,8 +341,8 @@ TriggeredAvgNode::TriggeredAvgNode()
     : GenericProcessor ("Triggered Avg"),
       canvas (nullptr),
       allChannelsSelected (true),
-      ringBufferSize (0),
-      threadsInitialized (false)
+      ringBufferSize (getSampleRate (0) * 10),
+      threadsInitialized (false) // 10 seconds buffer
 {
     addFloatParameter (Parameter::PROCESSOR_SCOPE,
                        "pre_ms",
@@ -559,14 +433,9 @@ void TriggeredAvgNode::parameterValueChanged (Parameter* param)
 
 void TriggeredAvgNode::process (AudioBuffer<float>& buffer)
 {
-    // Write data directly to ring buffer from the real-time audio thread
-    if (ringBuffer && threadsInitialized.load())
-    {
-        int64 firstSampleNumber = getFirstSampleNumberForBlock (getDataStreams()[0]->getStreamId());
-        ringBuffer->writeData (buffer, firstSampleNumber);
-    }
+    int64 firstSampleNumber = getFirstSampleNumberForBlock (getDataStreams()[0]->getStreamId());
+    ringBuffer->addData (buffer, firstSampleNumber);
 
-    // Check for events
     checkForEvents (true);
 }
 
@@ -798,7 +667,7 @@ void TriggeredAvgNode::initializeThreads()
 
     if (getNumInputs() > 0 && ringBufferSize > 0)
     {
-        ringBuffer = std::make_unique<ContRingBuffer> (getNumInputs(), ringBufferSize);
+        ringBuffer = std::make_unique<MultiChannelRingBuffer> (getNumInputs(), ringBufferSize);
         triggerDetector = std::make_unique<TriggerDetector> (this, ringBuffer.get());
         captureManager = std::make_unique<CaptureManager> (ringBuffer.get());
 

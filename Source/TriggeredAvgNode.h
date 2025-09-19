@@ -23,6 +23,8 @@
 */
 #pragma once
 
+#include "MultiChannelRingBuffer.h"
+
 #include <ProcessorHeaders.h>
 #include <atomic>
 #include <deque>
@@ -96,50 +98,6 @@ public:
     Colour colour;
 };
 
-/**
-    High-priority ring buffer for continuous data collection
-    Uses JUCE's copyFrom SIMD operations for optimal performance
-*/
-class ContRingBuffer
-{
-public:
-    ContRingBuffer (int numChannels, int bufferSize);
-    ~ContRingBuffer() = default;
-
-    /** Thread-safe write operation using SIMD copyFrom */
-    void writeData (const AudioBuffer<float>& inputBuffer, int64 firstSampleNumber);
-
-    /** Thread-safe read operation for triggered data extraction */
-    bool readTriggeredData (int64 triggerSample,
-                            int preSamples,
-                            int postSamples,
-                            Array<int> channelIndices,
-                            AudioBuffer<float>& outputBuffer);
-
-    /** Get current write position */
-    int64 getCurrentSampleNumber() const { return currentSampleNumber.load(); }
-
-    /** Check if buffer has enough data for triggered read */
-    bool hasEnoughDataForRead (int64 triggerSample, int preSamples) const;
-
-    /** Reset buffer state */
-    void reset();
-
-private:
-    AudioBuffer<float> ringBuffer;
-    AbstractFifo fifo;
-    HeapBlock<int64> sampleNumbers;
-
-    std::atomic<int64> currentSampleNumber;
-    std::atomic<int> writeIndex;
-
-    int numChannels;
-    int bufferSize;
-
-    CriticalSection writeLock;
-
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ContRingBuffer);
-};
 
 /**
     Thread for real-time trigger detection
@@ -147,8 +105,8 @@ private:
 class TriggerDetector : public Thread
 {
 public:
-    TriggerDetector (TriggeredAvgNode* viewer, ContRingBuffer* buffer);
-    ~TriggerDetector();
+    TriggerDetector (TriggeredAvgNode* viewer, MultiChannelRingBuffer* buffer);
+    ~TriggerDetector() override;
 
     /** Register TTL trigger event */
     void registerTTLTrigger (int line, bool state, int64 sampleNumber, uint16 streamId);
@@ -191,7 +149,7 @@ private:
     };
 
     TriggeredAvgNode* viewer;
-    ContRingBuffer* ringBuffer;
+    MultiChannelRingBuffer* ringBuffer;
 
     CriticalSection triggerQueueLock;
     std::deque<TriggerEvent> triggerQueue;
@@ -209,7 +167,7 @@ private:
 class CaptureManager : public Thread
 {
 public:
-    CaptureManager (ContRingBuffer* buffer);
+    CaptureManager (MultiChannelRingBuffer* buffer);
     ~CaptureManager();
 
     /** Request triggered data capture */
@@ -261,7 +219,7 @@ private:
         }
     };
 
-    ContRingBuffer* ringBuffer;
+    MultiChannelRingBuffer* ringBuffer;
 
     CriticalSection requestQueueLock;
     std::deque<CaptureRequest> captureRequests;
@@ -424,7 +382,7 @@ private:
     /** Shutdown threading components */
     void shutdownThreads();
 
-    std::unique_ptr<ContRingBuffer> ringBuffer;
+    std::unique_ptr<MultiChannelRingBuffer> ringBuffer;
     std::unique_ptr<TriggerDetector> triggerDetector;
     std::unique_ptr<CaptureManager> captureManager;
 
