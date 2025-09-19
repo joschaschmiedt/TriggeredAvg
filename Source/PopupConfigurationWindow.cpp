@@ -45,7 +45,7 @@ void EditableTextCustomComponent::labelTextChanged (Label* label)
 {
     String candidateName = label->getText();
 
-    String newName = processor->ensureUniqueName (candidateName);
+    String newName = processor->ensureUniqueTriggerSourceName (candidateName);
 
     label->setText (newName, dontSendNotification);
 

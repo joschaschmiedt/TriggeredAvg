@@ -23,20 +23,16 @@
 */
 #pragma once
 
-#include "MultiChannelRingBuffer.h"
-
 #include <ProcessorHeaders.h>
 #include <atomic>
-#include <deque>
-#include <map>
 #include <memory>
-#include <vector>
 
 namespace TriggeredAverage
 {
 
-class ContTrialData;
 class TriggeredAvgNode;
+class DataCollector;
+class MultiChannelRingBuffer;
 
 enum class TriggerType : std::int_fast8_t
 {
@@ -60,9 +56,6 @@ constexpr auto TriggerTypeToString (TriggerType type)
     }
 }
 
-/** 
-    Represents one trigger source for LFP data
-*/
 class TriggerSource
 {
 public:
@@ -98,245 +91,32 @@ public:
     Colour colour;
 };
 
-
-/**
-    Thread for real-time trigger detection
-*/
-class TriggerDetector : public Thread
-{
-public:
-    TriggerDetector (TriggeredAvgNode* viewer, MultiChannelRingBuffer* buffer);
-    ~TriggerDetector() override;
-
-    /** Register TTL trigger event */
-    void registerTTLTrigger (int line, bool state, int64 sampleNumber, uint16 streamId);
-
-    /** Register message trigger */
-    void registerMessageTrigger (const String& message, int64 sampleNumber);
-
-    /** Thread run function */
-    void run() override;
-
-private:
-    struct TriggerEvent
-    {
-        enum Type
-        {
-            TTL,
-            MESSAGE
-        };
-        Type type;
-        int line;
-        bool state;
-        String message;
-        int64 sampleNumber;
-        uint16 streamId;
-
-        TriggerEvent (int l, bool s, int64 sn, uint16 si)
-            : type (TTL),
-              line (l),
-              state (s),
-              sampleNumber (sn),
-              streamId (si)
-        {
-        }
-        TriggerEvent (const String& msg, int64 sn)
-            : type (MESSAGE),
-              message (msg),
-              sampleNumber (sn)
-        {
-        }
-    };
-
-    TriggeredAvgNode* viewer;
-    MultiChannelRingBuffer* ringBuffer;
-
-    CriticalSection triggerQueueLock;
-    std::deque<TriggerEvent> triggerQueue;
-    WaitableEvent newTriggerEvent;
-
-    /** Check if trigger event matches any trigger sources */
-    void processTriggerEvent (const TriggerEvent& event);
-
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TriggerDetector);
-};
-
-/**
-    Thread for managing triggered data capture
-*/
-class CaptureManager : public Thread
-{
-public:
-    CaptureManager (MultiChannelRingBuffer* buffer);
-    ~CaptureManager();
-
-    /** Request triggered data capture */
-    void requestCapture (TriggerSource* source,
-                         int64 triggerSample,
-                         int preSamples,
-                         int postSamples,
-                         Array<int> channelIndices);
-
-    /** Thread run function */
-    void run() override;
-
-    /** Get completed captures for UI */
-    bool getCompletedCapture (TriggerSource*& source,
-                              AudioBuffer<float>& data,
-                              int64& triggerSample);
-    bool getCompletedTrialData (std::unique_ptr<ContTrialData>& trial);
-
-private:
-    struct CaptureRequest
-    {
-        TriggerSource* source;
-        int64 triggerSample;
-        int preSamples;
-        int postSamples;
-        Array<int> channelIndices;
-
-        CaptureRequest (TriggerSource* s, int64 ts, int pre, int post, Array<int> channels)
-            : source (s),
-              triggerSample (ts),
-              preSamples (pre),
-              postSamples (post),
-              channelIndices (channels)
-        {
-        }
-    };
-
-    struct CompletedCapture
-    {
-        TriggerSource* source;
-        AudioBuffer<float> data;
-        int64 triggerSample;
-
-        CompletedCapture (TriggerSource* s, int64 ts, int numChannels, int numSamples)
-            : source (s),
-              data (numChannels, numSamples),
-              triggerSample (ts)
-        {
-        }
-    };
-
-    MultiChannelRingBuffer* ringBuffer;
-
-    CriticalSection requestQueueLock;
-    std::deque<CaptureRequest> captureRequests;
-    WaitableEvent newRequestEvent;
-
-    CriticalSection completedQueueLock;
-    std::deque<std::unique_ptr<CompletedCapture>> completedCaptures;
-
-    /** Process a single capture request */
-    void processCaptureRequest (const CaptureRequest& request);
-
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CaptureManager);
-};
-
-/**
-    Stores completed triggered data for display
-*/
-class ContTrialData
-{
-public:
-    ContTrialData (int numChannels, int numSamples, int64 triggerSample);
-    ~ContTrialData() {}
-
-    const AudioBuffer<float>& getData() const { return data; }
-    int64 getTriggerSample() const { return triggerSample; }
-
-    /** Get downsampled data for display */
-    void getDownsampledData (AudioBuffer<float>& output, int targetSamples) const;
-
-private:
-    AudioBuffer<float> data;
-    int64 triggerSample;
-
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ContTrialData);
-};
-
-/**
-    Container for storing multiple trials per trigger source
-*/
-class ContTrialBuffer
-{
-public:
-    ContTrialBuffer (int maxTrials = 10);
-    ~ContTrialBuffer();
-
-    /** Add new trial data */
-    void addTrial (std::unique_ptr<ContTrialData> trial);
-
-    /** Get trial by index */
-    const ContTrialData* getTrial (int index) const;
-
-    /** Get number of stored trials */
-    size_t getNumTrials() const { return trials.size(); }
-
-    /** Get averaged data across all trials */
-    void getAveragedData (AudioBuffer<float>& output) const;
-
-    /** Clear all trials */
-    void clear();
-
-private:
-    std::deque<std::unique_ptr<ContTrialData>> trials;
-    int maxTrials;
-
-    CriticalSection trialsLock;
-
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ContTrialBuffer);
-};
-
 class TriggeredAvgCanvas;
 
-/**
-    
-    Collects continuous data around TTL/message triggers for oscilloscope-like display.
-    Uses a streamlined multi-threaded architecture with direct ring buffer writes 
-    from the real-time audio thread.
-
-*/
 class TriggeredAvgNode : public GenericProcessor, public ::Timer
 {
 public:
-    /** Constructor */
     TriggeredAvgNode();
-
     ~TriggeredAvgNode() override;
 
+    // overrides
     AudioProcessorEditor* createEditor() override;
-
-    /** Used to alter parameters of data acquisition. */
     void parameterValueChanged (Parameter* param) override;
-
-    /** Calls checkForEvents */
     void process (AudioBuffer<float>& buffer) override;
+    void prepareToPlay (double sampleRate, int maximumExpectedSamplesPerBlock) override;
 
+    // parameters
     float getPreWindowSizeMs() const;
     float getPostWindowSizeMs() const;
     int getMaxTrials() const { return (int) getParameter ("max_trials")->getValue(); }
 
-    /** Returns an array of current trigger sources */
+    // trigger sources
     Array<TriggerSource*> getTriggerSources();
-
-    /** Adds a new trigger source */
     TriggerSource* addTriggerSource (int line, TriggerType type, int index = -1);
-
-    /** Removes trigger sources */
     void removeTriggerSources (Array<TriggerSource*> sources);
-
-    /** Removes a trigger source by index*/
     void removeTriggerSource (int indexToRemove);
 
-    /** Checks whether the source name is unique*/
-    String ensureUniqueName (String name);
-
-    /** Sets trigger source name*/
     void setTriggerSourceName (TriggerSource* source, String name, bool updateEditor = true);
-
-    /** Sets trigger source line */
     void setTriggerSourceLine (TriggerSource* source, int line, bool updateEditor = true);
 
     /** Sets trigger source colour */
@@ -347,7 +127,8 @@ public:
                                       TriggerType type,
                                       bool updateEditor = true);
 
-    int getNextConditionIndex() { return nextConditionIndex; }
+    String ensureUniqueTriggerSourceName (String name);
+    int getNextConditionIndex() const { return nextConditionIndex; }
 
     /** Saves trigger source parameters */
     void saveCustomParametersToXml (XmlElement* xml) override;
@@ -383,19 +164,11 @@ private:
     void shutdownThreads();
 
     std::unique_ptr<MultiChannelRingBuffer> ringBuffer;
-    std::unique_ptr<TriggerDetector> triggerDetector;
-    std::unique_ptr<CaptureManager> captureManager;
+    std::unique_ptr<DataCollector> dataCollector;
 
-    // Trigger sources and trial data
     OwnedArray<TriggerSource> triggerSources;
-    std::map<TriggerSource*, std::unique_ptr<ContTrialBuffer>> trialBuffers;
-
     int nextConditionIndex = 1;
     TriggerSource* currentTriggerSource = nullptr;
-
-    // Channel selection
-    Array<int> selectedChannels;
-    bool allChannelsSelected;
 
     // Buffer parameters
     int ringBufferSize;

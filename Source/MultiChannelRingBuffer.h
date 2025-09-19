@@ -1,12 +1,14 @@
 #pragma once
 #include <JuceHeader.h>
 
+namespace TriggeredAverage
+{
+
 class MultiChannelRingBuffer
 {
 public:
     MultiChannelRingBuffer (int numChannels, int bufferSize);
     ~MultiChannelRingBuffer() = default;
-
     void addData (const AudioBuffer<float>& inputBuffer, int64 firstSampleNumber);
     bool readTriggeredData (int64 triggerSample,
                             int preSamples,
@@ -33,6 +35,7 @@ private:
 
     CriticalSection writeLock;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MultiChannelRingBuffer);
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MultiChannelRingBuffer)
+    JUCE_DECLARE_NON_MOVEABLE (MultiChannelRingBuffer)
 };
-
+} // namespace TriggeredAverage

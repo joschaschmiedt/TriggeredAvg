@@ -27,10 +27,10 @@ SinglePlotPanel::SinglePlotPanel (GridDisplay* display_,
     infoLabel->setColour (Label::textColourId, Colours::white);
     addAndMakeVisible (infoLabel.get());
 
-    channelLabel = std::make_unique<Label> ("channel label");
     const auto font12pt = Font { withDefaultMetrics (FontOptions { 12.0f }) };
     const auto font16pt = Font { withDefaultMetrics (FontOptions { 16.0f }) };
 
+    channelLabel = std::make_unique<Label> ("channel label");
     channelLabel->setFont (font12pt);
     channelLabel->setJustificationType (Justification::topLeft);
     channelLabel->setColour (Label::textColourId, Colours::white);
@@ -55,11 +55,13 @@ SinglePlotPanel::SinglePlotPanel (GridDisplay* display_,
     hoverLabel->setColour (Label::textColourId, Colours::white);
     addAndMakeVisible (hoverLabel.get());
 
-    unitSelector = std::make_unique<ComboBox> ("Unit selector");
-    unitSelector->addItem ("Unit 0", 1);
-    unitSelector->setSelectedId (1);
-    unitSelector->addListener (this);
-    addChildComponent (unitSelector.get());
+    trialCounter = std::make_unique<Label> ("trial counter");
+    trialCounter->setFont (font12pt);
+    trialCounter->setJustificationType (Justification::centredTop);
+    auto trialCounterString = String ("Trials: ") + String (numTrials);
+    trialCounter->setText (trialCounterString, dontSendNotification);
+    trialCounter->setColour (Label::textColourId, baseColour);
+    addAndMakeVisible (trialCounter.get());
 
     maxCounts.add (1);
     uniqueSortedIds.add (0);
@@ -87,7 +89,6 @@ void SinglePlotPanel::resized()
     panelHeightPx = (getHeight() - 10);
 
     infoLabel->setBounds (labelOffset, 10, 150, 30);
-    unitSelector->setBounds (labelOffset + 5, 28, 100, 20);
 
     if (getHeight() < 100)
     {
@@ -125,56 +126,43 @@ void SinglePlotPanel::resized()
 
 void SinglePlotPanel::clear()
 {
-    relativeTimes.clear();
-    relativeTimeSortedIds.clear();
-    relativeTimeTrialIndices.clear();
     maxCounts.fill (1);
 
     numTrials = 0;
-
-    recount();
 }
 
 void SinglePlotPanel::addSpike (int64 sample_number, int sortedId)
 {
     //const ScopedLock lock(mutex);
 
-    newSpikeSampleNumbers.add (sample_number);
-    newSpikeSortedIds.add (sortedId);
+    //newSpikeSampleNumbers.add (sample_number);
+    //newSpikeSortedIds.add (sortedId);
 
-    int sortedIdIndex = uniqueSortedIds.indexOf (sortedId);
+    //int sortedIdIndex = uniqueSortedIds.indexOf (sortedId);
 
-    if (sortedIdIndex < 0)
-    {
-        sortedIdIndex = uniqueSortedIds.size();
-        uniqueSortedIds.add (sortedId);
-        if (sortedId > 0)
-            unitSelector->addItem ("Unit " + String (sortedId), sortedId + 1);
+    //if (sortedIdIndex < 0)
+    //{
+    //    sortedIdIndex = uniqueSortedIds.size();
+    //    uniqueSortedIds.add (sortedId);
+    //    if (sortedId > 0)
+    //        unitSelector->addItem ("Unit " + String (sortedId), sortedId + 1);
 
-        maxCounts.add (1);
-        counts.add (Array<int>());
-        maxSortedId = jmax (sortedId, maxSortedId);
-    }
+    //    maxCounts.add (1);
+    //    counts.add (Array<int>());
+    //    maxSortedId = jmax (sortedId, maxSortedId);
+    //}
 }
 
 void SinglePlotPanel::addEvent (int64 sample_number)
 {
-    if (! waitingForWindowToClose)
-    {
-        latestEventSampleNumber = sample_number;
-
-        startTimer (1010); // collect all spikes within 1 s
-
-        waitingForWindowToClose = true;
-    }
+    numTrials++;
+    latestEventSampleNumber = sample_number;
 }
 
 void SinglePlotPanel::setWindowSizeMs (float pre, float post)
 {
     pre_ms = pre;
     post_ms = post;
-
-    recount();
 }
 
 void SinglePlotPanel::setPlotType (TriggeredAverage::DisplayMode plotType)
@@ -227,7 +215,6 @@ void SinglePlotPanel::setOverlayMode (bool shouldOverlay)
 
     maxCounts.fill (1);
 
-    recount();
 }
 
 void SinglePlotPanel::setOverlayIndex (int index)
@@ -237,41 +224,10 @@ void SinglePlotPanel::setOverlayIndex (int index)
     resized();
 }
 
-void SinglePlotPanel::update()
-{
-    int index = 0;
-
-    // TODO: remove
-    for (auto sample_number : newSpikeSampleNumbers)
-    {
-        double offsetMs = double (sample_number - latestEventSampleNumber) / sample_rate * 1000;
-
-        if (offsetMs > -1000 && offsetMs < 1000)
-        {
-            relativeTimes.add (offsetMs);
-            relativeTimeSortedIds.add (newSpikeSortedIds[index]);
-            relativeTimeTrialIndices.add (int (numTrials));
-        }
-
-        index++;
-    }
-
-    numTrials++;
-
-    if (numTrials == 1)
-        recount (true);
-    else
-        recount (false);
-}
-
-void SinglePlotPanel::recount (bool full) { repaint(); }
+void SinglePlotPanel::update() { numTrials++; }
 
 void SinglePlotPanel::paint (Graphics& g)
 {
-    if (unitSelector->getNumItems() > 1 && ! unitSelector->isVisible())
-    {
-        unitSelector->setVisible (true);
-    }
 
     if (shouldDrawBackground)
         g.fillAll (panelBackground);
@@ -290,6 +246,8 @@ void SinglePlotPanel::paint (Graphics& g)
 
     float zeroLoc = (pre_ms) / (pre_ms + post_ms) * static_cast<float> (panelWidthPx);
 
+    auto trialCounterString =  String (numTrials);
+    trialCounter->setText (trialCounterString, dontSendNotification);
     g.setColour (Colours::white);
     g.drawLine (zeroLoc, 0, zeroLoc, static_cast<float> (getHeight()), 2.0);
 }
@@ -311,14 +269,6 @@ void SinglePlotPanel::mouseExit (const MouseEvent& event)
     repaint();
 }
 
-void SinglePlotPanel::timerCallback()
-{
-    stopTimer();
-    waitingForWindowToClose = false;
-
-    update();
-}
-
 void SinglePlotPanel::comboBoxChanged (ComboBox* comboBox)
 {
     if (overlayMode)
@@ -328,24 +278,8 @@ void SinglePlotPanel::comboBoxChanged (ComboBox* comboBox)
     }
     else
     {
-        currentUnitId = uniqueSortedIds[comboBox->getSelectedItemIndex()];
-
-        recount();
         repaint();
     }
-}
-
-void SinglePlotPanel::setUnitId (int unitId)
-{
-    currentUnitId = unitId;
-
-    if (uniqueSortedIds.contains (currentUnitId))
-        unitSelector->setSelectedItemIndex (uniqueSortedIds.indexOf (currentUnitId));
-    else
-        unitSelector->setSelectedItemIndex (0);
-
-    recount();
-    repaint();
 }
 
 void SinglePlotPanel::setMaxCount (int unitId, int count)

@@ -8,19 +8,18 @@ enum class DisplayMode : std::uint8_t;
 class GridDisplay;
 class TriggerSource;
 
-class SinglePlotPanel : public Component,
-                        public Timer,
-                        public ComboBox::Listener
+class SinglePlotPanel : public Component, public ComboBox::Listener
 {
 public:
-    SinglePlotPanel (TriggeredAverage::GridDisplay*, const ContinuousChannel* channel, const TriggerSource* triggerSource);
+    SinglePlotPanel (TriggeredAverage::GridDisplay*,
+                     const ContinuousChannel*,
+                     const TriggerSource*);
 
     void paint (Graphics& g) override;
     void resized() override;
 
     // TODO: remove
     void addSpike (int64 sample_number, int sortedId);
-    void setUnitId (int unitId);
 
     void addEvent (int64 sample_number);
 
@@ -44,17 +43,11 @@ public:
     DynamicObject getInfo() const;
 
 private:
-
-    // TODO: remove?
-    void timerCallback();
-    void recount (bool full = true);
-
     std::unique_ptr<Label> infoLabel;
     std::unique_ptr<Label> channelLabel;
     std::unique_ptr<Label> conditionLabel;
     std::unique_ptr<Label> hoverLabel;
-    std::unique_ptr<ComboBox> unitSelector;
-
+    std::unique_ptr<Label> trialCounter;
 
     // TODO: remove
     Array<int64> newSpikeSampleNumbers;
@@ -63,16 +56,10 @@ private:
     Array<int> uniqueSortedIds;
     Array<double> binEdges;
 
-
     bool plotAllTraces = true;
     bool plotAverage = true;
     int maxSortedId = 0;
     int maxRasterTrials = 30;
-
-    // TODO: remove
-    Array<double> relativeTimes;
-    Array<int> relativeTimeTrialIndices;
-    Array<int> relativeTimeSortedIds;
 
 
     Colour baseColour;

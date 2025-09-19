@@ -1,5 +1,7 @@
 #include "MultiChannelRingBuffer.h"
 
+using namespace TriggeredAverage;
+
 MultiChannelRingBuffer::MultiChannelRingBuffer (int numChannels_, int bufferSize_)
     : buffer (numChannels_, bufferSize_),
       currentSampleNumber (0),
@@ -73,6 +75,7 @@ bool MultiChannelRingBuffer::readTriggeredData (int64 triggerSample,
                                                 Array<int> channelIndices,
                                                 AudioBuffer<float>& outputBuffer) const
 {
+    // TODO: This should be lock free if we stay behind the write index
     const ScopedLock lock (writeLock);
 
     const int totalSamples = preSamples + postSamples;
