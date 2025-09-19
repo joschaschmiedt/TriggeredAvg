@@ -22,18 +22,23 @@
 */
 
 #include "TriggeredAvgNode.h"
-
 #include "TriggeredAvgCanvas.h"
 #include "TriggeredAvgEditor.h"
-
+#include <../../plugin-GUI/Source/Processors/Settings/ContinuousChannel.h>
 
 using namespace TriggeredAverage;
+using enum TriggeredAverage::TriggerType;
 
 //==============================================================================
 // LFPRingBuffer implementation
 //==============================================================================
 ContRingBuffer::ContRingBuffer (int numChannels_, int bufferSize_)
-    : ringBuffer (numChannels_, bufferSize_), fifo (bufferSize_), numChannels (numChannels_), bufferSize (bufferSize_), currentSampleNumber (0), writeIndex (0)
+    : ringBuffer (numChannels_, bufferSize_),
+      fifo (bufferSize_),
+      currentSampleNumber (0),
+      writeIndex (0),
+      numChannels (numChannels_),
+      bufferSize (bufferSize_)
 {
     sampleNumbers.malloc (bufferSize);
 
@@ -41,10 +46,6 @@ ContRingBuffer::ContRingBuffer (int numChannels_, int bufferSize_)
         sampleNumbers[i] = 0;
 
     ringBuffer.clear();
-}
-
-ContRingBuffer::~ContRingBuffer()
-{
 }
 
 void ContRingBuffer::writeData (const AudioBuffer<float>& inputBuffer, int64 firstSampleNumber)
@@ -90,7 +91,11 @@ void ContRingBuffer::writeData (const AudioBuffer<float>& inputBuffer, int64 fir
     currentSampleNumber.store (firstSampleNumber + numSamples);
 }
 
-bool ContRingBuffer::readTriggeredData (int64 triggerSample, int preSamples, int postSamples, Array<int> channelIndices, AudioBuffer<float>& outputBuffer)
+bool ContRingBuffer::readTriggeredData (int64 triggerSample,
+                                        int preSamples,
+                                        int postSamples,
+                                        Array<int> channelIndices,
+                                        AudioBuffer<float>& outputBuffer)
 {
     const ScopedLock lock (writeLock);
 
@@ -150,15 +155,15 @@ void ContRingBuffer::reset()
 // LFPTriggerDetector implementation
 //==============================================================================
 TriggerDetector::TriggerDetector (TriggeredAvgNode* viewer_, ContRingBuffer* buffer_)
-    : Thread ("LFP Trigger Detector"), viewer (viewer_), ringBuffer (buffer_), newTriggerEvent (false)
+    : Thread ("LFP Trigger Detector"),
+      viewer (viewer_),
+      ringBuffer (buffer_),
+      newTriggerEvent (false)
 {
     //setPriority(Thread::Priority::high);
 }
 
-TriggerDetector::~TriggerDetector()
-{
-    stopThread (1000);
-}
+TriggerDetector::~TriggerDetector() { stopThread (1000); }
 
 void TriggerDetector::registerTTLTrigger (int line, bool state, int64 sampleNumber, uint16 streamId)
 {
@@ -217,14 +222,16 @@ void TriggerDetector::processTriggerEvent (const TriggerEvent& event)
         if (event.type == TriggerEvent::TTL)
         {
             bool lineMatches = (source->line == -1) || (event.line == source->line);
-            if (lineMatches && event.state && source->canTrigger && (source->type == TTL_TRIGGER || source->type == TTL_AND_MSG_TRIGGER))
+            if (lineMatches && event.state && source->canTrigger
+                && (source->type == TTL_TRIGGER || source->type == TTL_AND_MSG_TRIGGER))
             {
                 shouldTrigger = true;
             }
         }
         else if (event.type == TriggerEvent::MESSAGE)
         {
-            if (event.message.equalsIgnoreCase (source->name) && source->canTrigger && (source->type == MSG_TRIGGER || source->type == TTL_AND_MSG_TRIGGER))
+            if (event.message.equalsIgnoreCase (source->name) && source->canTrigger
+                && (source->type == MSG_TRIGGER || source->type == TTL_AND_MSG_TRIGGER))
             {
                 shouldTrigger = true;
             }
@@ -232,7 +239,7 @@ void TriggerDetector::processTriggerEvent (const TriggerEvent& event)
 
         if (shouldTrigger)
         {
-            viewer->requestTriggeredCapture (source, event.sampleNumber);
+            //viewer->requestTriggeredCapture (source, event.sampleNumber);
 
             if (source->type == TTL_AND_MSG_TRIGGER)
                 source->canTrigger = false;
@@ -244,17 +251,20 @@ void TriggerDetector::processTriggerEvent (const TriggerEvent& event)
 // LFPCaptureManager implementation
 //==============================================================================
 CaptureManager::CaptureManager (ContRingBuffer* buffer_)
-    : Thread ("LFP Capture Manager"), ringBuffer (buffer_), newRequestEvent (false)
+    : Thread ("LFP Capture Manager"),
+      ringBuffer (buffer_),
+      newRequestEvent (false)
 {
     //setPriority(Thread::Priority::normal);
 }
 
-CaptureManager::~CaptureManager()
-{
-    stopThread (1000);
-}
+CaptureManager::~CaptureManager() { stopThread (1000); }
 
-void CaptureManager::requestCapture (TriggerSource* source, int64 triggerSample, int preSamples, int postSamples, Array<int> channelIndices)
+void CaptureManager::requestCapture (TriggerSource* source,
+                                     int64 triggerSample,
+                                     int preSamples,
+                                     int postSamples,
+                                     Array<int> channelIndices)
 {
     const ScopedLock lock (requestQueueLock);
     captureRequests.emplace_back (source, triggerSample, preSamples, postSamples, channelIndices);
@@ -290,29 +300,9 @@ void CaptureManager::run()
     }
 }
 
-void CaptureManager::processCaptureRequest (const CaptureRequest& request)
-{
-    if (! ringBuffer || ! request.source)
-        return;
-
-    int totalSamples = request.preSamples + request.postSamples;
-
-    // Create the completed capture with the correct source
-    auto capture = std::make_unique<CompletedCapture> (
-        request.source,
-        request.triggerSample,
-        request.channelIndices.size(),
-        totalSamples);
-
-    // Read data directly into the capture buffer
-    if (ringBuffer->readTriggeredData (request.triggerSample, request.preSamples, request.postSamples, request.channelIndices, capture->data))
-    {
-        const ScopedLock lock (completedQueueLock);
-        completedCaptures.push_back (std::move (capture));
-    }
-}
-
-bool CaptureManager::getCompletedCapture (TriggerSource*& source, AudioBuffer<float>& data, int64& triggerSample)
+bool CaptureManager::getCompletedCapture (TriggerSource*& source,
+                                          AudioBuffer<float>& data,
+                                          int64& triggerSample)
 {
     const ScopedLock lock (completedQueueLock);
 
@@ -343,9 +333,7 @@ bool CaptureManager::getCompletedTrialData (std::unique_ptr<ContTrialData>& tria
 
     // Create the trial data directly from the completed capture
     trial = std::make_unique<ContTrialData> (
-        capture->data.getNumChannels(),
-        capture->data.getNumSamples(),
-        capture->triggerSample);
+        capture->data.getNumChannels(), capture->data.getNumSamples(), capture->triggerSample);
 
     // Copy the data efficiently
     auto& trialData = const_cast<AudioBuffer<float>&> (trial->getData());
@@ -354,11 +342,35 @@ bool CaptureManager::getCompletedTrialData (std::unique_ptr<ContTrialData>& tria
     return true;
 }
 
+void CaptureManager::processCaptureRequest (const CaptureRequest& request)
+{
+    if (! ringBuffer || ! request.source)
+        return;
+
+    int totalSamples = request.preSamples + request.postSamples;
+
+    // Create the completed capture with the correct source
+    auto capture = std::make_unique<CompletedCapture> (
+        request.source, request.triggerSample, request.channelIndices.size(), totalSamples);
+
+    // Read data directly into the capture buffer
+    if (ringBuffer->readTriggeredData (request.triggerSample,
+                                       request.preSamples,
+                                       request.postSamples,
+                                       request.channelIndices,
+                                       capture->data))
+    {
+        const ScopedLock lock (completedQueueLock);
+        completedCaptures.push_back (std::move (capture));
+    }
+}
+
 //==============================================================================
 // LFPTrialData implementation
 //==============================================================================
 ContTrialData::ContTrialData (int numChannels, int numSamples, int64 triggerSample_)
-    : data (numChannels, numSamples), triggerSample (triggerSample_)
+    : data (numChannels, numSamples),
+      triggerSample (triggerSample_)
 {
 }
 
@@ -390,13 +402,9 @@ void ContTrialData::getDownsampledData (AudioBuffer<float>& output, int targetSa
 //==============================================================================
 // LFPTrialBuffer implementation
 //==============================================================================
-ContTrialBuffer::ContTrialBuffer (int maxTrials_) : maxTrials (maxTrials_)
-{
-}
+ContTrialBuffer::ContTrialBuffer (int maxTrials_) : maxTrials (maxTrials_) {}
 
-ContTrialBuffer::~ContTrialBuffer()
-{
-}
+ContTrialBuffer::~ContTrialBuffer() {}
 
 void ContTrialBuffer::addTrial (std::unique_ptr<ContTrialData> trial)
 {
@@ -462,21 +470,25 @@ TriggeredAvgNode::TriggeredAvgNode()
       ringBufferSize (0),
       threadsInitialized (false)
 {
-    addIntParameter (Parameter::PROCESSOR_SCOPE,
-                     "pre_ms",
-                     "Pre MS",
-                     "Size of the pre-trigger window in ms",
-                     500,
-                     10,
-                     2000);
+    addFloatParameter (Parameter::PROCESSOR_SCOPE,
+                       "pre_ms",
+                       "Pre MS",
+                       "Size of the pre-trigger window in ms",
+                       "ms",
+                       500.0f,
+                       10.0f,
+                       5000.0f,
+                       10.0f);
 
-    addIntParameter (Parameter::PROCESSOR_SCOPE,
-                     "post_ms",
-                     "Post MS",
-                     "Size of the post-trigger window in ms",
-                     2000,
-                     10,
-                     5000);
+    addFloatParameter (Parameter::PROCESSOR_SCOPE,
+                       "post_ms",
+                       "Post MS",
+                       "Size of the post-trigger window in ms",
+                       "ms",
+                       2000.0f,
+                       10.0f,
+                       5000.0f,
+                       10.0f);
 
     addIntParameter (Parameter::PROCESSOR_SCOPE,
                      "max_trials",
@@ -506,65 +518,12 @@ TriggeredAvgNode::TriggeredAvgNode()
     addTriggerSource (-1, TTL_TRIGGER);
 }
 
-TriggeredAvgNode::~TriggeredAvgNode()
-{
-    shutdownThreads();
-}
+TriggeredAvgNode::~TriggeredAvgNode() { shutdownThreads(); }
 
 AudioProcessorEditor* TriggeredAvgNode::createEditor()
 {
     editor = std::make_unique<TriggeredAvgEditor> (this);
     return editor.get();
-}
-
-void TriggeredAvgNode::updateSettings()
-{
-    if (getDataStreams().size() > 0)
-    {
-        int numChannels = getNumInputs();
-        float sampleRate = getDataStreams()[0]->getSampleRate();
-
-        // Calculate buffer size (5 seconds worth of data)
-        ringBufferSize = (int) (sampleRate * 10.0f);
-
-        initializeThreads();
-    }
-}
-
-void TriggeredAvgNode::initializeThreads()
-{
-    if (threadsInitialized.load())
-        shutdownThreads();
-
-    if (getNumInputs() > 0 && ringBufferSize > 0)
-    {
-        ringBuffer = std::make_unique<ContRingBuffer> (getNumInputs(), ringBufferSize);
-        triggerDetector = std::make_unique<TriggerDetector> (this, ringBuffer.get());
-        captureManager = std::make_unique<CaptureManager> (ringBuffer.get());
-
-        triggerDetector->startThread (Thread::Priority::high);
-        captureManager->startThread (Thread::Priority::normal);
-
-        threadsInitialized.store (true);
-
-        // Start timer to poll for completed captures every 50ms
-        startTimer (50);
-    }
-}
-
-void TriggeredAvgNode::shutdownThreads()
-{
-    if (threadsInitialized.load())
-    {
-        // Stop the timer first to prevent callbacks with invalid objects
-        stopTimer();
-
-        triggerDetector.reset();
-        captureManager.reset();
-        ringBuffer.reset();
-
-        threadsInitialized.store (false);
-    }
 }
 
 void TriggeredAvgNode::parameterValueChanged (Parameter* param)
@@ -611,88 +570,9 @@ void TriggeredAvgNode::process (AudioBuffer<float>& buffer)
     checkForEvents (true);
 }
 
-void TriggeredAvgNode::handleTTLEvent (TTLEventPtr event)
-{
-    if (triggerDetector && threadsInitialized.load())
-    {
-        triggerDetector->registerTTLTrigger (event->getLine(), event->getState(), event->getSampleNumber(), event->getStreamId());
-    }
-}
+float TriggeredAvgNode::getPreWindowSizeMs() const { return getParameter ("pre_ms")->getValue(); }
 
-void TriggeredAvgNode::handleBroadcastMessage (const String& message, const int64 sysTimeMs)
-{
-    if (triggerDetector && threadsInitialized.load())
-    {
-        // Estimate sample number from system time
-        int64 sampleNumber = 0;
-        if (getDataStreams().size() > 0)
-        {
-            float sampleRate = getDataStreams()[0]->getSampleRate();
-            sampleNumber = (int64) (sysTimeMs * sampleRate / 1000.0);
-        }
-
-        triggerDetector->registerMessageTrigger (message, sampleNumber);
-    }
-}
-
-void TriggeredAvgNode::requestTriggeredCapture (TriggerSource* source, int64 triggerSample)
-{
-    if (! captureManager || ! threadsInitialized.load())
-        return;
-
-    float sampleRate = getDataStreams()[0]->getSampleRate();
-    int preSamples = (int) (sampleRate * getPreWindowSizeMs() / 1000);
-    int postSamples = (int) (sampleRate * getPostWindowSizeMs() / 1000);
-
-    Array<int> channels = getSelectedChannels();
-
-    captureManager->requestCapture (source, triggerSample, preSamples, postSamples, channels);
-}
-
-void TriggeredAvgNode::timerCallback()
-{
-    if (! captureManager || ! threadsInitialized.load())
-        return;
-
-    TriggerSource* source;
-    AudioBuffer<float> data;
-    int64 triggerSample;
-
-    while (captureManager->getCompletedCapture (source, data, triggerSample))
-    {
-        // Create trial data object
-        auto trial = std::make_unique<ContTrialData> (data.getNumChannels(), data.getNumSamples(), triggerSample);
-
-        // Move the data into the trial (no copying!)
-        auto& trialData = const_cast<AudioBuffer<float>&> (trial->getData());
-        trialData = std::move (data);
-
-        if (trialBuffers.find (source) != trialBuffers.end())
-        {
-            trialBuffers[source]->addTrial (std::move (trial));
-        }
-
-        if (canvas != nullptr)
-        {
-            canvas->newDataReceived (source);
-        }
-    }
-}
-
-int TriggeredAvgNode::getPreWindowSizeMs()
-{
-    return (int) getParameter ("pre_ms")->getValue();
-}
-
-int TriggeredAvgNode::getPostWindowSizeMs()
-{
-    return (int) getParameter ("post_ms")->getValue();
-}
-
-int TriggeredAvgNode::getMaxTrials()
-{
-    return (int) getParameter ("max_trials")->getValue();
-}
+float TriggeredAvgNode::getPostWindowSizeMs() const { return getParameter ("post_ms")->getValue(); }
 
 Array<TriggerSource*> TriggeredAvgNode::getTriggerSources()
 {
@@ -769,12 +649,16 @@ void TriggeredAvgNode::setTriggerSourceLine (TriggerSource* source, int line, bo
     source->colour = TriggerSource::getColourForLine (line);
 }
 
-void TriggeredAvgNode::setTriggerSourceColour (TriggerSource* source, Colour colour, bool updateEditor)
+void TriggeredAvgNode::setTriggerSourceColour (TriggerSource* source,
+                                               Colour colour,
+                                               bool updateEditor)
 {
     source->colour = colour;
 }
 
-void TriggeredAvgNode::setTriggerSourceTriggerType (TriggerSource* source, TriggerType type, bool updateEditor)
+void TriggeredAvgNode::setTriggerSourceTriggerType (TriggerSource* source,
+                                                    TriggerType type,
+                                                    bool updateEditor)
 {
     source->type = type;
 
@@ -784,69 +668,6 @@ void TriggeredAvgNode::setTriggerSourceTriggerType (TriggerSource* source, Trigg
         source->canTrigger = false;
 }
 
-Array<int> TriggeredAvgNode::getSelectedChannels()
-{
-    if (allChannelsSelected)
-    {
-        Array<int> allChannels;
-        for (int i = 0; i < getNumInputs(); i++)
-            allChannels.add (i);
-        return allChannels;
-    }
-    return selectedChannels;
-}
-
-void TriggeredAvgNode::setSelectedChannels (Array<int> channels)
-{
-    selectedChannels = channels;
-    allChannelsSelected = false;
-}
-
-void TriggeredAvgNode::clearTriggerSourceData (TriggerSource* source)
-{
-    if (trialBuffers.find (source) != trialBuffers.end())
-    {
-        trialBuffers[source]->clear();
-    }
-}
-
-void TriggeredAvgNode::clearAllData()
-{
-    for (auto& pair : trialBuffers)
-    {
-        pair.second->clear();
-    }
-}
-
-ContTrialBuffer* TriggeredAvgNode::getTrialBuffer (TriggerSource* source)
-{
-    if (trialBuffers.find (source) != trialBuffers.end())
-    {
-        return trialBuffers[source].get();
-    }
-    return nullptr;
-}
-
-String TriggeredAvgNode::handleConfigMessage (const String& message)
-{
-    return "";
-}
-
-bool TriggeredAvgNode::getIntField (DynamicObject::Ptr payload,
-                                      String name,
-                                      int& value,
-                                      int lowerBound,
-                                      int upperBound)
-{
-    if (payload->hasProperty (name))
-    {
-        value = payload->getProperty (name);
-        if (value >= lowerBound && value <= upperBound)
-            return true;
-    }
-    return false;
-}
-
 void TriggeredAvgNode::saveCustomParametersToXml (XmlElement* xml)
 {
     for (auto source : triggerSources)
@@ -854,7 +675,7 @@ void TriggeredAvgNode::saveCustomParametersToXml (XmlElement* xml)
         XmlElement* sourceXml = xml->createNewChildElement ("TRIGGERSOURCE");
         sourceXml->setAttribute ("name", source->name);
         sourceXml->setAttribute ("line", source->line);
-        sourceXml->setAttribute ("type", source->type);
+        sourceXml->setAttribute ("type", static_cast<int> (source->type));
         sourceXml->setAttribute ("colour", source->colour.toString());
     }
 
@@ -874,35 +695,134 @@ void TriggeredAvgNode::saveCustomParametersToXml (XmlElement* xml)
 void TriggeredAvgNode::loadCustomParametersFromXml (XmlElement* xml)
 {
     triggerSources.clear();
-    trialBuffers.clear();
+    nextConditionIndex = 1;
 
-    //forEachXmlChildElement (*xml, sourceXml)
-    //{
-    //    if (sourceXml->hasTagName ("TRIGGERSOURCE"))
-    //    {
-    //        String name = sourceXml->getStringAttribute ("name");
-    //        int line = sourceXml->getIntAttribute ("line");
-    //        int type = sourceXml->getIntAttribute ("type");
-    //        Colour colour = Colour::fromString (sourceXml->getStringAttribute ("colour"));
+    for (auto sourceXml : xml->getChildIterator())
+    {
+        if (sourceXml->hasTagName ("TRIGGERSOURCE"))
+        {
+            String savedName = sourceXml->getStringAttribute ("name");
+            int savedLine = sourceXml->getIntAttribute ("line", 0);
+            int savedType = sourceXml->getIntAttribute ("type", static_cast<int> (TTL_TRIGGER));
+            String savedColour = sourceXml->getStringAttribute ("colour", "");
 
-    //        TriggerSource* source = addTriggerSource (line, (TriggerType) type);
-    //        source->name = name;
-    //        source->colour = colour;
-    //    }
-    //    else if (sourceXml->hasTagName ("CHANNELS"))
-    //    {
-    //        allChannelsSelected = sourceXml->getBoolAttribute ("allSelected", true);
-    //        if (! allChannelsSelected)
-    //        {
-    //            selectedChannels.clear();
-    //            forEachXmlChildElement (*sourceXml, channelXml)
-    //            {
-    //                if (channelXml->hasTagName ("CHANNEL"))
-    //                {
-    //                    selectedChannels.add (channelXml->getIntAttribute ("index"));
-    //                }
-    //            }
-    //        }
-    //    }
-    //}
+            TriggerSource* source =
+                addTriggerSource (savedLine, static_cast<TriggerType> (savedType));
+
+            if (savedName.isNotEmpty())
+                source->name = savedName;
+
+            if (savedColour.length() > 0)
+                source->colour = Colour::fromString (savedColour);
+        }
+    }
+}
+
+void TriggeredAvgNode::handleBroadcastMessage (const String& message, const int64 sysTimeMs)
+{
+    if (triggerDetector && threadsInitialized.load())
+    {
+        // Estimate sample number from system time
+        int64 sampleNumber = 0;
+        if (getDataStreams().size() > 0)
+        {
+            float sampleRate = getDataStreams()[0]->getSampleRate();
+            sampleNumber = (int64) (sysTimeMs * sampleRate / 1000.0);
+        }
+
+        triggerDetector->registerMessageTrigger (message, sampleNumber);
+    }
+}
+
+String TriggeredAvgNode::handleConfigMessage (const String& message) { return ""; }
+
+bool TriggeredAvgNode::getIntField (DynamicObject::Ptr payload,
+                                    String name,
+                                    int& value,
+                                    int lowerBound,
+                                    int upperBound)
+{
+    if (payload->hasProperty (name))
+    {
+        value = payload->getProperty (name);
+        if (value >= lowerBound && value <= upperBound)
+            return true;
+    }
+    return false;
+}
+
+void TriggeredAvgNode::handleTTLEvent (TTLEventPtr event)
+{
+    if (triggerDetector && threadsInitialized.load())
+    {
+        triggerDetector->registerTTLTrigger (
+            event->getLine(), event->getState(), event->getSampleNumber(), event->getStreamId());
+    }
+}
+
+void TriggeredAvgNode::timerCallback()
+{
+    if (! captureManager || ! threadsInitialized.load())
+        return;
+
+    TriggerSource* source;
+    AudioBuffer<float> data;
+    int64 triggerSample;
+
+    while (captureManager->getCompletedCapture (source, data, triggerSample))
+    {
+        // Create trial data object
+        auto trial = std::make_unique<ContTrialData> (
+            data.getNumChannels(), data.getNumSamples(), triggerSample);
+
+        // Move the data into the trial (no copying!)
+        auto& trialData = const_cast<AudioBuffer<float>&> (trial->getData());
+        trialData = std::move (data);
+
+        if (trialBuffers.find (source) != trialBuffers.end())
+        {
+            trialBuffers[source]->addTrial (std::move (trial));
+        }
+
+        if (canvas != nullptr)
+        {
+            //canvas->newDataReceived (source);
+        }
+    }
+}
+
+void TriggeredAvgNode::initializeThreads()
+{
+    if (threadsInitialized.load())
+        shutdownThreads();
+
+    if (getNumInputs() > 0 && ringBufferSize > 0)
+    {
+        ringBuffer = std::make_unique<ContRingBuffer> (getNumInputs(), ringBufferSize);
+        triggerDetector = std::make_unique<TriggerDetector> (this, ringBuffer.get());
+        captureManager = std::make_unique<CaptureManager> (ringBuffer.get());
+
+        triggerDetector->startThread (Thread::Priority::high);
+        captureManager->startThread (Thread::Priority::normal);
+
+        threadsInitialized.store (true);
+
+        // Start timer to poll for completed captures every 50ms
+        startTimer (50);
+    }
+}
+
+void TriggeredAvgNode::shutdownThreads()
+{
+    if (threadsInitialized.load())
+    {
+        // Stop the timer first to prevent callbacks with invalid objects
+        stopTimer();
+
+        triggerDetector.reset();
+        captureManager.reset();
+        ringBuffer.reset();
+
+        threadsInitialized.store (false);
+    }
 }

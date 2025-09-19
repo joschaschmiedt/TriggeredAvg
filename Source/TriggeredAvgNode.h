@@ -1,8 +1,9 @@
 /*
     ------------------------------------------------------------------
 
-    This file is part of the Open Ephys GUI
-    Copyright (C) 2025 Open Ephys
+    This file is part of the Open Ephys GUI Plugin Triggered Average
+    Copyright (C) 2022 Open Ephys
+    Copyright (C) 2025 Joscha Schmiedt
 
     ------------------------------------------------------------------
 
@@ -20,9 +21,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
-
-#ifndef __TriggeredLFPViewer_H_3F920F95__
-#define __TriggeredLFPViewer_H_3F920F95__
+#pragma once
 
 #include <ProcessorHeaders.h>
 #include <atomic>
@@ -37,12 +36,27 @@ namespace TriggeredAverage
 class ContTrialData;
 class TriggeredAvgNode;
 
-enum TriggerType
+enum class TriggerType : std::int_fast8_t
 {
     TTL_TRIGGER = 1,
     MSG_TRIGGER = 2,
     TTL_AND_MSG_TRIGGER = 3
 };
+
+constexpr auto TriggerTypeToString (TriggerType type)
+{
+    switch (type)
+    {
+        case TriggerType::TTL_TRIGGER:
+            return "TTL Trigger";
+        case TriggerType::MSG_TRIGGER:
+            return "Message Trigger";
+        case TriggerType::TTL_AND_MSG_TRIGGER:
+            return "TTL and Message Trigger";
+        default:
+            return "Unknown Trigger Type";
+    }
+}
 
 /** 
     Represents one trigger source for LFP data
@@ -51,9 +65,12 @@ class TriggerSource
 {
 public:
     TriggerSource (TriggeredAvgNode* processor_, String name_, int line_, TriggerType type_)
-        : name (name_), line (line_), type (type_), processor (processor_)
+        : name (name_),
+          line (line_),
+          type (type_),
+          processor (processor_)
     {
-        if (type == TTL_TRIGGER)
+        if (type == TriggerType::TTL_TRIGGER)
             canTrigger = true;
         else
             canTrigger = false;
@@ -63,16 +80,10 @@ public:
 
     static Colour getColourForLine (int line)
     {
-        Array<Colour> eventColours = {
-            Colour (224, 185, 36),
-            Colour (243, 119, 33),
-            Colour (237, 37, 36),
-            Colour (217, 46, 171),
-            Colour (101, 31, 255),
-            Colour (48, 117, 255),
-            Colour (116, 227, 156),
-            Colour (82, 173, 0)
-        };
+        Array<Colour> eventColours = { Colour (224, 185, 36),  Colour (243, 119, 33),
+                                       Colour (237, 37, 36),   Colour (217, 46, 171),
+                                       Colour (101, 31, 255),  Colour (48, 117, 255),
+                                       Colour (116, 227, 156), Colour (82, 173, 0) };
 
         return eventColours[line % 8];
     }
@@ -93,13 +104,17 @@ class ContRingBuffer
 {
 public:
     ContRingBuffer (int numChannels, int bufferSize);
-    ~ContRingBuffer();
+    ~ContRingBuffer() = default;
 
     /** Thread-safe write operation using SIMD copyFrom */
     void writeData (const AudioBuffer<float>& inputBuffer, int64 firstSampleNumber);
 
     /** Thread-safe read operation for triggered data extraction */
-    bool readTriggeredData (int64 triggerSample, int preSamples, int postSamples, Array<int> channelIndices, AudioBuffer<float>& outputBuffer);
+    bool readTriggeredData (int64 triggerSample,
+                            int preSamples,
+                            int postSamples,
+                            Array<int> channelIndices,
+                            AudioBuffer<float>& outputBuffer);
 
     /** Get current write position */
     int64 getCurrentSampleNumber() const { return currentSampleNumber.load(); }
@@ -160,9 +175,19 @@ private:
         uint16 streamId;
 
         TriggerEvent (int l, bool s, int64 sn, uint16 si)
-            : type (TTL), line (l), state (s), sampleNumber (sn), streamId (si) {}
+            : type (TTL),
+              line (l),
+              state (s),
+              sampleNumber (sn),
+              streamId (si)
+        {
+        }
         TriggerEvent (const String& msg, int64 sn)
-            : type (MESSAGE), message (msg), sampleNumber (sn) {}
+            : type (MESSAGE),
+              message (msg),
+              sampleNumber (sn)
+        {
+        }
     };
 
     TriggeredAvgNode* viewer;
@@ -188,13 +213,19 @@ public:
     ~CaptureManager();
 
     /** Request triggered data capture */
-    void requestCapture (TriggerSource* source, int64 triggerSample, int preSamples, int postSamples, Array<int> channelIndices);
+    void requestCapture (TriggerSource* source,
+                         int64 triggerSample,
+                         int preSamples,
+                         int postSamples,
+                         Array<int> channelIndices);
 
     /** Thread run function */
     void run() override;
 
     /** Get completed captures for UI */
-    bool getCompletedCapture (TriggerSource*& source, AudioBuffer<float>& data, int64& triggerSample);
+    bool getCompletedCapture (TriggerSource*& source,
+                              AudioBuffer<float>& data,
+                              int64& triggerSample);
     bool getCompletedTrialData (std::unique_ptr<ContTrialData>& trial);
 
 private:
@@ -207,7 +238,13 @@ private:
         Array<int> channelIndices;
 
         CaptureRequest (TriggerSource* s, int64 ts, int pre, int post, Array<int> channels)
-            : source (s), triggerSample (ts), preSamples (pre), postSamples (post), channelIndices (channels) {}
+            : source (s),
+              triggerSample (ts),
+              preSamples (pre),
+              postSamples (post),
+              channelIndices (channels)
+        {
+        }
     };
 
     struct CompletedCapture
@@ -217,7 +254,11 @@ private:
         int64 triggerSample;
 
         CompletedCapture (TriggerSource* s, int64 ts, int numChannels, int numSamples)
-            : source (s), data (numChannels, numSamples), triggerSample (ts) {}
+            : source (s),
+              data (numChannels, numSamples),
+              triggerSample (ts)
+        {
+        }
     };
 
     ContRingBuffer* ringBuffer;
@@ -305,29 +346,19 @@ public:
     /** Constructor */
     TriggeredAvgNode();
 
-    /** Destructor */
-    ~TriggeredAvgNode();
+    ~TriggeredAvgNode() override;
 
-    /** Creates the TriggeredLFPEditor. */
     AudioProcessorEditor* createEditor() override;
 
     /** Used to alter parameters of data acquisition. */
     void parameterValueChanged (Parameter* param) override;
 
-    /** Direct write to ring buffer from real-time audio thread */
+    /** Calls checkForEvents */
     void process (AudioBuffer<float>& buffer) override;
 
-    /** Returns the pre-trigger window size in ms */
-    int getPreWindowSizeMs();
-
-    /** Returns the post-trigger window size in ms */
-    int getPostWindowSizeMs();
-
-    /** Returns the maximum number of trials to store */
-    int getMaxTrials();
-
-    /** Pointer to the display canvas */
-    TriggeredAvgCanvas* canvas;
+    float getPreWindowSizeMs() const;
+    float getPostWindowSizeMs() const;
+    int getMaxTrials() const { return (int) getParameter ("max_trials")->getValue(); }
 
     /** Returns an array of current trigger sources */
     Array<TriggerSource*> getTriggerSources();
@@ -354,36 +385,18 @@ public:
     void setTriggerSourceColour (TriggerSource* source, Colour colour, bool updateEditor = true);
 
     /** Sets trigger source type */
-    void setTriggerSourceTriggerType (TriggerSource* source, TriggerType type, bool updateEditor = true);
-
-    /** Get selected channels for display */
-    Array<int> getSelectedChannels();
-
-    /** Set selected channels for display */
-    void setSelectedChannels (Array<int> channels);
-
-    /** Clear all data for a specific trigger source */
-    void clearTriggerSourceData (TriggerSource* source);
-
-    /** Clear all data */
-    void clearAllData();
-
-    /** Get trial buffer for a trigger source */
-    ContTrialBuffer* getTrialBuffer (TriggerSource* source);
-
-    /** Request triggered data capture (called by trigger detector) */
-    void requestTriggeredCapture (TriggerSource* source, int64 triggerSample);
+    void setTriggerSourceTriggerType (TriggerSource* source,
+                                      TriggerType type,
+                                      bool updateEditor = true);
 
     int getNextConditionIndex() { return nextConditionIndex; }
 
     /** Saves trigger source parameters */
     void saveCustomParametersToXml (XmlElement* xml) override;
 
-    /** Loads trigger source parameters */
+    /** Saves trigger source parameters */
     void loadCustomParametersFromXml (XmlElement* xml) override;
-
-    /** Called when processor settings are updated */
-    void updateSettings() override;
+    TriggeredAvgCanvas* canvas;
 
 private:
     /** Responds to incoming broadcast messages */
@@ -430,8 +443,7 @@ private:
     int ringBufferSize;
     std::atomic<bool> threadsInitialized;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TriggeredAvgNode);
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TriggeredAvgNode)
 };
 
 } // namespace TriggeredAverage
-#endif // __TriggeredLFPViewer_H_3F920F95__

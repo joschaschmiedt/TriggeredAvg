@@ -1,86 +1,141 @@
-/*
-    ------------------------------------------------------------------
-
-    This file is part of the Open Ephys GUI
-    Copyright (C) 2025 Open Ephys
-
-    ------------------------------------------------------------------
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-*/
+// SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "TriggeredAvgEditor.h"
-#include "TriggeredAvgNode.h"
+
+#include "PopupConfigurationWindow.h"
+#include "TriggeredAvgActions.h"
 #include "TriggeredAvgCanvas.h"
+#include "TriggeredAvgNode.h"
 using namespace TriggeredAverage;
 
-// TriggeredLFPEditor implementation
-TriggeredAvgEditor::TriggeredAvgEditor(GenericProcessor* parentNode) 
-    : VisualizerEditor(parentNode, "Triggered Avg", 200)  // Reduced width since we moved controls
-{
-    processor = static_cast<TriggeredAvgNode*>(parentNode);
+TriggeredAvgEditor::TriggeredAvgEditor (GenericProcessor* parentNode)
+    : VisualizerEditor (parentNode, "TRIG AVG", 210),
+      canvas (nullptr),
+      currentConfigWindow (nullptr)
 
-    // Keep only essential action button in the editor
-    clearDataButton = std::make_unique<UtilityButton>("Clear Data");
-    clearDataButton->addListener(this);
-    addAndMakeVisible(clearDataButton.get());
-}
-
-void TriggeredAvgEditor::collapsedStateChanged()
 {
-    // Update canvas if needed
-}
+    addBoundedValueParameterEditor (Parameter::PROCESSOR_SCOPE, "pre_ms", 20, 30);
 
-void TriggeredAvgEditor::updateSettings()
-{
-    updateParameterControls();
-}
+    addBoundedValueParameterEditor (Parameter::PROCESSOR_SCOPE, "post_ms", 20, 78);
 
-void TriggeredAvgEditor::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
-{
-    // No combo boxes in the editor anymore
-}
-
-void TriggeredAvgEditor::buttonClicked(Button* button)
-{
-    if (button == clearDataButton.get())
+    for (auto& p : { "pre_ms", "post_ms" })
     {
-        processor->clearAllData();
+        auto* ed = getParameterEditor (p);
+        ed->setLayout (ParameterEditor::Layout::nameOnTop);
+        ed->setBounds (ed->getX(), ed->getY(), 80, 36);
     }
+
+    configureButton = std::make_unique<UtilityButton> ("CONFIGURE");
+    configureButton->setFont (FontOptions (14.0f));
+    configureButton->addListener (this);
+    configureButton->setBounds (115, 85, 80, 30);
+    addAndMakeVisible (configureButton.get());
 }
 
 Visualizer* TriggeredAvgEditor::createNewCanvas()
 {
-    TriggeredAvgNode* processor = static_cast<TriggeredAvgNode*>(getProcessor());
-    
-    auto triggered_avg_canvas = new TriggeredAvgCanvas(processor);
-    processor->canvas = triggered_avg_canvas;
-    
-    return triggered_avg_canvas;
+    auto* p = dynamic_cast<TriggeredAvgNode*> (getProcessor());
+    assert (p);
+
+    canvas = new TriggeredAvgCanvas (p);
+    p->canvas = canvas;
+
+    updateSettings();
+
+    return canvas;
 }
 
-void TriggeredAvgEditor::updateParameterControls()
+void TriggeredAvgEditor::updateSettings()
 {
-    // Update parameter control values if needed
+    if (canvas == nullptr)
+        return;
+
+    canvas->prepareToUpdate();
+
+    TriggeredAvgNode* proc = dynamic_cast<TriggeredAvgNode*> (getProcessor());
+    assert (proc);
+
+    for (int i = 0; i < proc->getTotalContinuousChannels(); i++)
+    {
+        const ContinuousChannel* channel = proc->getContinuousChannel (i);
+
+        for (auto source : proc->getTriggerSources())
+        {
+            //if (channel->isValid())
+            {
+                canvas->addContChannel (channel, source);
+                //LOGD("Editor adding ", channel->getName(), " for ", source->name);
+            }
+        }
+    }
+
+    canvas->setWindowSizeMs (proc->getPreWindowSizeMs(), proc->getPostWindowSizeMs());
+
+    canvas->resized();
 }
 
-void TriggeredAvgEditor::resized()
+void TriggeredAvgEditor::updateColours (TriggerSource* source)
 {
-    int yPos = 30;
-    int leftMargin = 10;
+    if (canvas == nullptr)
+        return;
 
-    // Only the clear data button remains
-    clearDataButton->setBounds(leftMargin, yPos, 100, 20);
+    canvas->updateColourForSource (source);
+}
+
+void TriggeredAvgEditor::updateConditionName (TriggerSource* source)
+{
+    if (canvas == nullptr)
+        return;
+
+    canvas->updateConditionName (source);
+}
+
+void TriggeredAvgEditor::buttonClicked (Button* button)
+{
+    if (button == configureButton.get())
+    {
+        TriggeredAvgNode* proc = (TriggeredAvgNode*) getProcessor();
+
+        Array<TriggerSource*> triggerLines = proc->getTriggerSources();
+        LOGD (triggerLines.size(), " trigger sources found.");
+
+        currentConfigWindow =
+            new Popup::PopupConfigurationWindow (this, triggerLines, acquisitionIsActive);
+
+        CoreServices::getPopupManager()->showPopup (
+            std::unique_ptr<PopupComponent> (currentConfigWindow), button);
+
+        return;
+    }
+}
+
+void TriggeredAvgEditor::addTriggerSources (Popup::PopupConfigurationWindow* window,
+                                            Array<int> lines,
+                                            TriggerType type)
+{
+    TriggeredAvgNode* proc = (TriggeredAvgNode*) getProcessor();
+
+    AddTriggerConditions* action = new AddTriggerConditions (proc, lines, type);
+
+    CoreServices::getUndoManager()->beginNewTransaction ("Disabled during acquisition");
+    CoreServices::getUndoManager()->perform ((UndoableAction*) action);
+
+    if (window != nullptr)
+        window->update (proc->getTriggerSources());
+}
+
+void TriggeredAvgEditor::removeTriggerSources (
+    Popup::PopupConfigurationWindow* window,
+    juce::Array<TriggerSource*, juce::DummyCriticalSection, 0> triggerSourcesToRemove)
+{
+    TriggeredAvgNode* proc = (TriggeredAvgNode*) getProcessor();
+
+    RemoveTriggerConditions* action =
+        new RemoveTriggerConditions (proc, triggerSourcesToRemove);
+
+    CoreServices::getUndoManager()->beginNewTransaction ("Disabled during acquisition");
+    CoreServices::getUndoManager()->perform ((UndoableAction*) action);
+
+    if (window != nullptr)
+        window->update (proc->getTriggerSources());
 }

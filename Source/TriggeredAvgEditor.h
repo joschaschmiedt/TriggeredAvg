@@ -21,65 +21,61 @@
 
 */
 
-#ifndef __TriggeredLFPEditor_H_2C4C2D67__
-#define __TriggeredLFPEditor_H_2C4C2D67__
-
+#pragma once
 #include <EditorHeaders.h>
 #include <VisualizerEditorHeaders.h>
-
 class Visualizer;
 
 namespace TriggeredAverage
 {
+class TriggeredAvgCanvas;
 class TriggeredAvgNode;
 class TriggerSource;
+enum class TriggerType : std::int_fast8_t;
 
-/**
+namespace Popup
+{
+    class PopupConfigurationWindow;
+}
 
-    User interface for the TriggeredLFPViewer processor.
-
-*/
-
-class TriggeredAvgEditor : public VisualizerEditor,
-                           public ComboBox::Listener,
-                           public Button::Listener
+class TriggeredAvgEditor : public VisualizerEditor, public Button::Listener
 {
 public:
-    /** Constructor */
     TriggeredAvgEditor (GenericProcessor* parentNode);
+    ~TriggeredAvgEditor() override = default;
 
-    /** Destructor */
-    ~TriggeredAvgEditor() {}
-
-    /** Called when the tab becomes visible again */
-    void collapsedStateChanged() override;
-
-    /** Updates settings after a parameter value change */
-    void updateSettings() override;
-
-    /** Opens the canvas window */
+    /** Creates the visualizer */
     Visualizer* createNewCanvas() override;
 
-    /** ComboBox listener callback */
-    void comboBoxChanged (ComboBox* comboBoxThatHasChanged) override;
+    /** Called when signal chain is updated */
+    void updateSettings() override;
 
-    /** Button listener callback */
+    /** Called when source colours are updated */
+    void updateColours (TriggerSource*);
+
+    /** Called when condition name is updated */
+    void updateConditionName (TriggerSource*);
+
+    /** Called when configure button is clicked */
     void buttonClicked (Button* button) override;
 
-    /** Component callback for resizing */
-    void resized() override;
+    /** Adds triggers with a given type */
+    void addTriggerSources (Popup::PopupConfigurationWindow* window,
+                            Array<int> lines,
+                            TriggerType type);
+
+    /** Removes triggers based on an array of pointers to trigger objects*/
+    void removeTriggerSources (Popup::PopupConfigurationWindow* window,
+                               Array<TriggerSource*> triggerSourcesToRemove);
 
 private:
-    /** Pointer to the actual processor */
-    TriggeredAvgNode* processor;
+    std::unique_ptr<UtilityButton> configureButton;
 
-    // Action button for clearing data (keep minimal controls in editor)
-    std::unique_ptr<UtilityButton> clearDataButton;
+    TriggeredAvgCanvas* canvas;
 
-    void updateParameterControls();
+    Popup::PopupConfigurationWindow* currentConfigWindow;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TriggeredAvgEditor);
 };
 
 } // namespace TriggeredAverage
-#endif // __TriggeredLFPEditor_H_2C4C2D67__
