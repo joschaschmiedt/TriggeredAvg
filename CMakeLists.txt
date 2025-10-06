@@ -21,15 +21,52 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 	endif()
 endif()
 
-
-
 set(SOURCE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/Source)
 set(GUI_COMMONLIB_DIR ${GUI_BASE_DIR}/installed_libs)
-
 set(CONFIGURATION_FOLDER $<$<CONFIG:Debug>:Debug>$<$<NOT:$<CONFIG:Debug>>:Release>)
-
 list(APPEND CMAKE_PREFIX_PATH ${GUI_COMMONLIB_DIR} ${GUI_COMMONLIB_DIR}/${CONFIGURATION_FOLDER})
+set(GUI_BIN_DIR ${GUI_BASE_DIR}/Build/${CONFIGURATION_FOLDER})
 
+message(STATUS "Using GUI_BASE_DIR: " ${GUI_BASE_DIR})
+message(STATUS "GUI_BIN_DIR will be: " ${GUI_BASE_DIR}/Build/[Debug|Release])
+
+
+# STATIC PLUGIN LIBRARY WITH TESTABLE SOURCES
+add_library(${PLUGIN_NAME}-core STATIC
+		${SOURCE_PATH}/DataCollector.cpp
+		${SOURCE_PATH}/GridDisplay.cpp
+		${SOURCE_PATH}/MultiChannelRingBuffer.cpp
+		${SOURCE_PATH}/PopupConfigurationWindow.cpp
+		${SOURCE_PATH}/SinglePlotPanel.cpp
+		${SOURCE_PATH}/TimeAxis.cpp
+)
+target_link_libraries(${PLUGIN_NAME}-core 
+	PUBLIC
+		${GUI_BIN_DIR}/open-ephys.lib
+)
+
+target_compile_definitions(${PLUGIN_NAME}-core 
+    PRIVATE
+        OEPLUGIN
+        "$<$<PLATFORM_ID:Windows>:JUCE_API=__declspec(dllimport)>"
+        $<$<PLATFORM_ID:Windows>:_CRT_SECURE_NO_WARNINGS>
+        $<$<PLATFORM_ID:Linux>:JUCE_DISABLE_NATIVE_FILECHOOSERS=1>
+        $<$<CONFIG:Debug>:DEBUG=1>
+        $<$<CONFIG:Debug>:_DEBUG=1>
+        $<$<CONFIG:Release>:NDEBUG=1>
+)
+
+target_compile_features(${PLUGIN_NAME}-core PUBLIC cxx_auto_type cxx_generalized_initializers cxx_std_20)
+target_include_directories(${PLUGIN_NAME}-core
+	PUBLIC 
+		${GUI_BASE_DIR}/JuceLibraryCode
+		${GUI_BASE_DIR}/JuceLibraryCode/modules
+		${GUI_BASE_DIR}/Plugins/Headers
+		${GUI_COMMONLIB_DIR}/include
+)
+
+
+# SHARED PLUGIN LIBRARY
 if (APPLE)
 	add_library(${PLUGIN_NAME} MODULE)
 else()
@@ -51,28 +88,16 @@ target_sources(${PLUGIN_NAME}
 		FILE_SET HEADERS 
 		BASE_DIRS ${SOURCE_PATH}
 		FILES
-			${SOURCE_PATH}/DataCollector.h
-			${SOURCE_PATH}/GridDisplay.h
-			${SOURCE_PATH}/MultiChannelRingBuffer.h
-			${SOURCE_PATH}/PopupConfigurationWindow.h
-			${SOURCE_PATH}/SinglePlotPanel.h
-			${SOURCE_PATH}/TimeAxis.h
 			${SOURCE_PATH}/TriggeredAvgActions.h
 			${SOURCE_PATH}/TriggeredAvgCanvas.h
 			${SOURCE_PATH}/TriggeredAvgEditor.h
 			${SOURCE_PATH}/TriggeredAvgNode.h
 	PRIVATE
-		${SOURCE_PATH}/DataCollector.cpp
-		${SOURCE_PATH}/GridDisplay.cpp
-		${SOURCE_PATH}/MultiChannelRingBuffer.cpp
-		${SOURCE_PATH}/OpenEphysLib.cpp
-		${SOURCE_PATH}/PopupConfigurationWindow.cpp
-		${SOURCE_PATH}/SinglePlotPanel.cpp
-		${SOURCE_PATH}/TimeAxis.cpp
 		${SOURCE_PATH}/TriggeredAvgActions.cpp
 		${SOURCE_PATH}/TriggeredAvgCanvas.cpp
 		${SOURCE_PATH}/TriggeredAvgEditor.cpp
 		${SOURCE_PATH}/TriggeredAvgNode.cpp
+		${SOURCE_PATH}/OpenEphysLib.cpp
 )
 
 target_compile_features(${PLUGIN_NAME} PUBLIC cxx_auto_type cxx_generalized_initializers cxx_std_20)
@@ -84,26 +109,23 @@ target_include_directories(${PLUGIN_NAME}
 		${GUI_COMMONLIB_DIR}/include
 )
 
-set(GUI_BIN_DIR ${GUI_BASE_DIR}/Build/${CONFIGURATION_FOLDER})
 
-if (NOT CMAKE_LIBRARY_ARCHITECTURE)
-	if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-		set(CMAKE_LIBRARY_ARCHITECTURE "x64")
-	else()
-		set(CMAKE_LIBRARY_ARCHITECTURE "x86")
-	endif()
-endif()
-
-#Libraries and compiler options
 if(MSVC)
-	target_link_libraries(${PLUGIN_NAME} ${GUI_BIN_DIR}/open-ephys.lib)
+	target_link_libraries(${PLUGIN_NAME}
+		${GUI_BIN_DIR}/open-ephys.lib
+		${PLUGIN_NAME}-core
+	)
+
 	target_compile_options(${PLUGIN_NAME} PRIVATE /sdl /W4 /MP /external:W0 /external:anglebrackets)
 	
 	install(TARGETS ${PLUGIN_NAME} RUNTIME DESTINATION ${GUI_BIN_DIR}/plugins  CONFIGURATIONS ${CMAKE_CONFIGURATION_TYPES})
 
 	set(CMAKE_PREFIX_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../libs)
 elseif(LINUX)
-	target_link_libraries(${PLUGIN_NAME} GL X11 Xext Xinerama asound dl freetype pthread rt)
+	target_link_libraries(${PLUGIN_NAME} 
+		${PLUGIN_NAME}-core
+		GL X11 Xext Xinerama asound dl freetype pthread rt
+	)
 	set_property(TARGET ${PLUGIN_NAME} APPEND_STRING PROPERTY LINK_FLAGS
 		"-fvisibility=hidden -fPIC -rdynamic -Wl,-rpath,'$$ORIGIN/../shared'")
 	target_compile_options(${PLUGIN_NAME} PRIVATE -fPIC -rdynamic)
@@ -126,4 +148,5 @@ option(BUILD_TESTS "Build unit tests" ON)
 if(BUILD_TESTS)
 	add_subdirectory(Tests)
 endif()
-#target_include_directories(${PLUGIN_NAME} PRIVATE ${LIBNAME_INCLUDE_DIRS})
+
+

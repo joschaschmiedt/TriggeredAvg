@@ -26,8 +26,9 @@ target_sources(triggered-avg-tests
 
 # Link against Google Test
 target_link_libraries(triggered-avg-tests
-    triggered-avg
-    GTest::gtest_main
+    PRIVATE
+		triggered-avg-core
+		GTest::gtest_main
 )
 
 # Set up include directories - use the same as the main plugin
@@ -56,31 +57,6 @@ target_compile_definitions(triggered-avg-tests PRIVATE
     JUCE_USE_CURL=0
     JUCE_WEB_BROWSER=0
 )
-
-# Platform-specific linking - similar to main plugin
-if(MSVC)
-    # Link against the Open Ephys library
-    target_link_libraries(triggered-avg-tests ${GUI_BIN_DIR}/open-ephys.lib)
-
-    # Use same compiler options as main plugin but suppress some warnings for tests
-    target_compile_options(triggered-avg-tests PRIVATE
-        /W3  # Reduced warning level for tests
-        /MP
-        /external:W0
-        /external:anglebrackets
-        # Suppress specific warnings that are common in tests
-        /wd4251  # DLL interface warnings
-        /wd4275  # DLL interface warnings for base classes
-    )
-
-elseif(LINUX)
-    target_link_libraries(triggered-avg-tests GL X11 Xext Xinerama asound dl freetype pthread rt)
-    target_compile_options(triggered-avg-tests PRIVATE -fPIC -rdynamic -O3)
-
-elseif(APPLE)
-    # macOS specific settings
-    target_compile_options(triggered-avg-tests PRIVATE -Wall -Wno-deprecated-declarations)
-endif()
 
 # Add test to CTest
 include(GoogleTest)
