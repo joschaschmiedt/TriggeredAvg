@@ -1,4 +1,4 @@
-#include "../Source/MultiChannelRingBuffer.h"
+#include "MultiChannelRingBuffer.h"
 #include <JuceHeader.h>
 #include <gtest/gtest.h>
 #include <memory>
