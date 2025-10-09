@@ -17,7 +17,7 @@ protected:
 
         // Common setup for most tests
         numChannels = 4;
-        bufferSize = 1000;
+        bufferSize = 100;
         ringBuffer = std::make_unique<MultiChannelRingBuffer> (numChannels, bufferSize);
     }
 
@@ -72,7 +72,8 @@ protected:
 TEST_F (MultiChannelRingBufferTest, ConstructorInitialization)
 {
     EXPECT_EQ (ringBuffer->getCurrentSampleNumber(), 0);
-    EXPECT_FALSE (ringBuffer->hasEnoughDataForRead (0, 10, 10));
+    auto [result, startSample] = ringBuffer->getStartSampleForTriggeredRead (0, 10, 10);
+    EXPECT_NE (result, RingBufferReadResult::Success);
 }
 
 TEST_F (MultiChannelRingBufferTest, BasicDataAddition)
@@ -81,11 +82,17 @@ TEST_F (MultiChannelRingBufferTest, BasicDataAddition)
     int64 firstSample = 0;
 
     ringBuffer->addData (testData, firstSample);
+    auto size = ringBuffer->getBufferSize();
 
     EXPECT_EQ (ringBuffer->getCurrentSampleNumber(), 100);
-    EXPECT_TRUE (ringBuffer->hasEnoughDataForRead (50, 10, 39)); // Total 49 samples, trigger at 50
-    EXPECT_FALSE (
-        ringBuffer->hasEnoughDataForRead (50, 10, 40)); // Total 50 samples, would exceed available
+    auto [result, startSample] = (ringBuffer->getStartSampleForTriggeredRead (
+        50, 10, 39)); // Total 49 samples, trigger at 50
+    ASSERT_TRUE (startSample.has_value());  // NOLINT(bugprone-unchecked-optional-access)
+    EXPECT_EQ (startSample.value(), 40);
+    EXPECT_EQ (result, RingBufferReadResult::Success);
+    std::tie (result, startSample) = ringBuffer->getStartSampleForTriggeredRead (
+        50, 10, 50 + size); //  would exceed available data
+    EXPECT_EQ (result, RingBufferReadResult::NotEnoughNewData);
 }
 
 TEST_F (MultiChannelRingBufferTest, SimpleTriggeredDataRead)
@@ -96,9 +103,9 @@ TEST_F (MultiChannelRingBufferTest, SimpleTriggeredDataRead)
     AudioBuffer<float> outputBuffer;
     Array<int> channels = { 0, 1, 2, 3 };
 
-    bool success = ringBuffer->readTriggeredData (50, 10, 10, channels, outputBuffer);
+    auto result = ringBuffer->readTriggeredData (50, 10, 10, channels, outputBuffer);
 
-    ASSERT_TRUE (success);
+    ASSERT_EQ (result, RingBufferReadResult::Success);
     EXPECT_EQ (outputBuffer.getNumChannels(), 4);
     EXPECT_EQ (outputBuffer.getNumSamples(), 20);
 
@@ -114,9 +121,9 @@ TEST_F (MultiChannelRingBufferTest, ChannelSubsetRead)
     AudioBuffer<float> outputBuffer;
     Array<int> channels = { 1, 3 }; // Only channels 1 and 3
 
-    bool success = ringBuffer->readTriggeredData (50, 10, 10, channels, outputBuffer);
+    auto success = ringBuffer->readTriggeredData (50, 10, 10, channels, outputBuffer);
 
-    ASSERT_TRUE (success);
+    ASSERT_EQ (success, RingBufferReadResult::Success);
     EXPECT_EQ (outputBuffer.getNumChannels(), 2);
     EXPECT_EQ (outputBuffer.getNumSamples(), 20);
 
@@ -139,21 +146,21 @@ TEST_F (MultiChannelRingBufferTest, EdgeCaseReads)
     Array<int> channels = { 0 };
 
     // Read exactly at the beginning of available data
-    bool success = ringBuffer->readTriggeredData (1000, 0, 1, channels, outputBuffer);
-    ASSERT_TRUE (success);
+    auto success = ringBuffer->readTriggeredData (1000, 0, 1, channels, outputBuffer);
+    ASSERT_EQ (success, RingBufferReadResult::Success);
     EXPECT_EQ (outputBuffer.getNumSamples(), 1);
 
     // Read exactly at the end of available data
     success = ringBuffer->readTriggeredData (1099, 0, 1, channels, outputBuffer);
-    ASSERT_TRUE (success);
+    ASSERT_EQ (success, RingBufferReadResult::Success);
 
     // Try to read beyond available data
     success = ringBuffer->readTriggeredData (1100, 0, 1, channels, outputBuffer);
-    EXPECT_FALSE (success);
+    ASSERT_NE (success, RingBufferReadResult::Success);
 
     // Try to read before available data
     success = ringBuffer->readTriggeredData (999, 0, 1, channels, outputBuffer);
-    EXPECT_FALSE (success);
+    ASSERT_NE (success, RingBufferReadResult::Success);
 }
 //
 //TEST_F (MultiChannelRingBufferTest, BufferWrapAround)

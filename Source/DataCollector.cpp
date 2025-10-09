@@ -137,7 +137,7 @@ static void processCaptureRequest (const TriggeredAverage::MultiChannelRingBuffe
 
     // TODO: wait until all the required data is there
 
-    bool result = ringBuffer->readTriggeredData (request.triggerSample,
+    auto result = ringBuffer->readTriggeredData (request.triggerSample,
                                                  request.preSamples,
                                                  request.postSamples,
                                                  request.channelIndices,
