@@ -20,25 +20,24 @@ enum class DisplayMode : std::uint8_t
 
 constexpr auto DisplayModeModeToString (DisplayMode mode) -> const char*
 {
-    using enum DisplayMode;
+    // using enum DisplayMode;
     switch (mode)
     {
-        case INDIVIDUAL_TRACES:
+        case DisplayMode::INDIVIDUAL_TRACES:
             return "All traces";
-        case AVERAGE_TRAGE:
+        case DisplayMode::AVERAGE_TRAGE:
             return "Average trace";
-        case ALL_AND_AVERAGE:
+        case DisplayMode::ALL_AND_AVERAGE:
             return "Average + All";
         default:
             return "Unknown";
     }
 }
 
-static const auto DisplayModeStrings = StringArray { "All traces", "Average trace", "Average + All" };
+static const auto DisplayModeStrings =
+    StringArray { "All traces", "Average trace", "Average + All" };
 
-class OptionsBar : public Component,
-                   public Button::Listener,
-                   public ComboBox::Listener
+class OptionsBar : public Component, public Button::Listener, public ComboBox::Listener
 {
 public:
     OptionsBar (TriggeredAvgCanvas*, GridDisplay*, TimeAxis*);
@@ -94,7 +93,6 @@ public:
 
     /** Sets the overall window size*/
     void setWindowSizeMs (float pre_ms, float post_ms);
-
 
     /** Add an event to the queue */
     void pushEvent (const TriggerSource* source, uint16 streamId, int64 sample_number);

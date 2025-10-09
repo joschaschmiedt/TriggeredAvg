@@ -1,5 +1,8 @@
 #pragma once
 #include <JuceHeader.h>
+#include <atomic>
+#include <mutex>
+using int64 = std::int64_t;
 
 namespace TriggeredAverage
 {
@@ -9,12 +12,12 @@ class MultiChannelRingBuffer
 public:
     MultiChannelRingBuffer (int numChannels, int bufferSize);
     ~MultiChannelRingBuffer() = default;
-    void addData (const AudioBuffer<float>& inputBuffer, int64 firstSampleNumber);
+    void addData (const juce::AudioBuffer<float>& inputBuffer, int64 firstSampleNumber);
     bool readTriggeredData (int64 triggerSample,
                             int preSamples,
                             int postSamples,
-                            Array<int> channelIndices,
-                            AudioBuffer<float>& outputBuffer) const;
+                            juce::Array<int> channelIndices,
+                            juce::AudioBuffer<float>& outputBuffer) const;
 
     int64 getCurrentSampleNumber() const { return currentSampleNumber.load(); }
 
@@ -23,8 +26,8 @@ public:
     void reset();
 
 private:
-    AudioBuffer<float> buffer;
-    Array<int64> sampleNumbers;
+    juce::AudioBuffer<float> buffer;
+    juce::Array<int64> sampleNumbers;
 
     std::atomic<int64> currentSampleNumber;
     std::atomic<int> writeIndex;
@@ -33,7 +36,8 @@ private:
     int numChannels;
     int bufferSize;
 
-    CriticalSection writeLock;
+    //CriticalSection writeLock;
+    mutable std::recursive_mutex writeLock;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MultiChannelRingBuffer)
     JUCE_DECLARE_NON_MOVEABLE (MultiChannelRingBuffer)

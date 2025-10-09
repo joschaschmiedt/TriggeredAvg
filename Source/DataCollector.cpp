@@ -4,7 +4,7 @@
 #include <ProcessorHeaders.h>
 
 using namespace TriggeredAverage;
-using enum TriggeredAverage::TriggerType;
+// using enum TriggeredAverage::TriggerType;
 
 DataCollector::DataCollector (TriggeredAvgNode* viewer_, MultiChannelRingBuffer* buffer_)
     : Thread ("Trigger Detector"),
@@ -78,7 +78,8 @@ void DataCollector::processTriggerEvent (TTLEventPtr event)
             {
                 bool lineMatches = (source->line == -1) || (event->getLine() == source->line);
                 if (lineMatches && event->getState() && source->canTrigger
-                    && (source->type == TTL_TRIGGER || source->type == TTL_AND_MSG_TRIGGER))
+                    && (source->type == TriggerType::TTL_TRIGGER
+                        || source->type == TriggerType::TTL_AND_MSG_TRIGGER))
                 {
                     shouldTrigger = true;
                 }
@@ -97,7 +98,7 @@ void DataCollector::processTriggerEvent (TTLEventPtr event)
             // TODO: Trigger processing via
             //viewer->requestTriggeredCapture (source, event.sampleNumber);
 
-            if (source->type == TTL_AND_MSG_TRIGGER)
+            if (source->type == TriggerType::TTL_AND_MSG_TRIGGER)
                 source->canTrigger = false;
         }
     }

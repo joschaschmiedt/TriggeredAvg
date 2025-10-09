@@ -1,6 +1,9 @@
 #include "MultiChannelRingBuffer.h"
 
+#include <juce_audio_basics/juce_audio_basics.h> // for AudioBuffer
+
 using namespace TriggeredAverage;
+using namespace juce;
 
 MultiChannelRingBuffer::MultiChannelRingBuffer (int numChannels_, int bufferSize_)
     : buffer (numChannels_, bufferSize_),
@@ -11,31 +14,31 @@ MultiChannelRingBuffer::MultiChannelRingBuffer (int numChannels_, int bufferSize
       bufferSize (bufferSize_)
 {
     sampleNumbers.resize (bufferSize);
-    //buffer.clear();
+    buffer.clear();
 }
 
 void MultiChannelRingBuffer::addData (const AudioBuffer<float>& inputBuffer,
                                       int64 firstSampleNumber)
 {
-    const ScopedLock lock (writeLock);
+    const std::scoped_lock lock (writeLock);
 
     const int numSamplesIn = inputBuffer.getNumSamples();
     if (numSamplesIn <= 0)
         return;
 
     // If the incoming block is larger than the buffer, only keep the last bufferSize samples.
-    const int writeCount = jmin (numSamplesIn, bufferSize);
+    const int writeCount = std::min (numSamplesIn, bufferSize);
     const int srcOffset = numSamplesIn - writeCount;
 
     // first segment (until end of ring)
     const int spaceToEnd = bufferSize - writeIndex.load();
-    const int blockSize1 = jmin (writeCount, spaceToEnd);
+    const int blockSize1 = std::min (writeCount, spaceToEnd);
 
     if (blockSize1 > 0)
     {
-        for (int ch = 0; ch < jmin (numChannels, inputBuffer.getNumChannels()); ++ch)
+        for (int ch = 0; ch < std::min (numChannels, inputBuffer.getNumChannels()); ++ch)
         {
-            buffer.copyFrom (ch, writeIndex, inputBuffer, ch, srcOffset, blockSize1);
+            buffer.copyFrom (ch, writeIndex.load(), inputBuffer, ch, srcOffset, blockSize1);
         }
 
         for (int i = 0; i < blockSize1; ++i)
@@ -47,7 +50,7 @@ void MultiChannelRingBuffer::addData (const AudioBuffer<float>& inputBuffer,
     // second segment (from start of ring)
     if (const int blockSize2 = writeCount - blockSize1; blockSize2 > 0)
     {
-        for (int ch = 0; ch < jmin (numChannels, inputBuffer.getNumChannels()); ++ch)
+        for (int ch = 0; ch < std::min (numChannels, inputBuffer.getNumChannels()); ++ch)
         {
             buffer.copyFrom (ch, 0, inputBuffer, ch, srcOffset + blockSize1, blockSize2);
         }
@@ -76,7 +79,7 @@ bool MultiChannelRingBuffer::readTriggeredData (int64 triggerSample,
                                                 AudioBuffer<float>& outputBuffer) const
 {
     // TODO: This should be lock free if we stay behind the write index
-    const ScopedLock lock (writeLock);
+    const std::scoped_lock lock (writeLock);
 
     const int totalSamples = preSamples + postSamples;
     if (totalSamples <= 0)
@@ -113,7 +116,7 @@ bool MultiChannelRingBuffer::readTriggeredData (int64 triggerSample,
         }
 
         // We can copy in up to 2 blocks due to wraparound
-        const int firstBlock = jmin (totalSamples, bufferSize - bufferStartPos);
+        const int firstBlock = std::min (totalSamples, bufferSize - bufferStartPos);
         if (firstBlock > 0)
             outputBuffer.copyFrom (outCh, 0, buffer, sourceCh, bufferStartPos, firstBlock);
 
@@ -125,7 +128,9 @@ bool MultiChannelRingBuffer::readTriggeredData (int64 triggerSample,
     return true;
 }
 
-bool MultiChannelRingBuffer::hasEnoughDataForRead (int64 triggerSample, int preSamples, int postSamples) const
+bool MultiChannelRingBuffer::hasEnoughDataForRead (int64 triggerSample,
+                                                   int preSamples,
+                                                   int postSamples) const
 {
     // this does not require locking as it only reads atomic variables
     const int totalSamples = preSamples + postSamples;
@@ -147,12 +152,11 @@ bool MultiChannelRingBuffer::hasEnoughDataForRead (int64 triggerSample, int preS
         return false; // Not enough new data yet
 
     return true;
-
 }
 
 void MultiChannelRingBuffer::reset()
 {
-    const ScopedLock lock (writeLock);
+    const std::scoped_lock lock (writeLock);
     buffer.clear();
     currentSampleNumber.store (0);
     writeIndex.store (0);

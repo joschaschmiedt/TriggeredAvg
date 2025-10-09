@@ -29,7 +29,6 @@
 #include "TriggeredAvgEditor.h"
 
 using namespace TriggeredAverage;
-using enum TriggeredAverage::TriggerType;
 
 TriggeredAvgNode::TriggeredAvgNode()
     : GenericProcessor ("Triggered Avg"),
@@ -82,7 +81,7 @@ TriggeredAvgNode::TriggeredAvgNode()
                      3);
 
     // Create a default trigger source for any line
-    addTriggerSource (-1, TTL_TRIGGER);
+    addTriggerSource (-1, TriggerType::TTL_TRIGGER);
 }
 
 TriggeredAvgNode::~TriggeredAvgNode() { shutdownThreads(); }
@@ -112,7 +111,7 @@ void TriggeredAvgNode::parameterValueChanged (Parameter* param)
         {
             currentTriggerSource->type = (TriggerType) (int) param->getValue();
 
-            if (currentTriggerSource->type == TTL_TRIGGER)
+            if (currentTriggerSource->type == TriggerType::TTL_TRIGGER)
                 currentTriggerSource->canTrigger = true;
             else
                 currentTriggerSource->canTrigger = false;
@@ -223,7 +222,7 @@ void TriggeredAvgNode::setTriggerSourceTriggerType (TriggerSource* source,
 {
     source->type = type;
 
-    if (source->type == TTL_TRIGGER)
+    if (source->type == TriggerType::TTL_TRIGGER)
         source->canTrigger = true;
     else
         source->canTrigger = false;
@@ -252,7 +251,8 @@ void TriggeredAvgNode::loadCustomParametersFromXml (XmlElement* xml)
         {
             String savedName = sourceXml->getStringAttribute ("name");
             int savedLine = sourceXml->getIntAttribute ("line", 0);
-            int savedType = sourceXml->getIntAttribute ("type", static_cast<int> (TTL_TRIGGER));
+            int savedType =
+                sourceXml->getIntAttribute ("type", static_cast<int> (TriggerType::TTL_TRIGGER));
             String savedColour = sourceXml->getStringAttribute ("colour", "");
 
             TriggerSource* source =
@@ -275,11 +275,11 @@ void TriggeredAvgNode::handleBroadcastMessage (const String& message, const int6
         {
             if (message.equalsIgnoreCase (source->name))
             {
-                if (source->type == TTL_AND_MSG_TRIGGER)
+                if (source->type == TriggerType::TTL_AND_MSG_TRIGGER)
                 {
                     source->canTrigger = true;
                 }
-                else if (source->type == MSG_TRIGGER)
+                else if (source->type == TriggerType::MSG_TRIGGER)
                 {
                     for (auto stream : getDataStreams())
                     {
@@ -322,7 +322,7 @@ void TriggeredAvgNode::handleTTLEvent (TTLEventPtr event)
                 dataCollector->registerTTLTrigger (event);
                 ;
 
-                if (source->type == TTL_AND_MSG_TRIGGER)
+                if (source->type == TriggerType::TTL_AND_MSG_TRIGGER)
                     source->canTrigger = false;
             }
         }
