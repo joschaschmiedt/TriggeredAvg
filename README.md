@@ -1,7 +1,8 @@
 # Triggered Average Plugin for OpenEphys GUI
 
-A plugin for the Open Ephys GUI that displays continuous signals triggered by TTL events and/or messages, similar to an oscilloscope triggered display.
-The plugin is based on the Online PSTH plugin.
+A work-in-progress plugin for the Open Ephys GUI that averages continuous
+signals triggered by TTL events and/or messages, similar to a triggered display on an oscilloscope.
+The plugin is based on the [Online PSTH plugin](https://github.com/open-ephys-plugins/online-psth).
 
 ## Features
 
@@ -33,4 +34,3 @@ The plugin is based on the Online PSTH plugin.
 - **Clear Data**: Reset all collected data
 - **Save**: Export traces and statistics
 - **Auto Scale**: Automatically adjust amplitude range
-
