@@ -6,211 +6,155 @@
 using namespace TriggeredAverage;
 using namespace testing;
 
-
-TEST(FOO, ultrabasic)
+// Test fixture that properly initializes JUCE
+class MultiChannelRingBufferTest : public ::testing::Test
 {
-    juce::ScopedJuceInitialiser_GUI scopedJuceInit;
-    //juce::initialiseJuce_GUI();
+protected:
+    void SetUp() override
+    {
+        // Initialize JUCE for GUI components
+        scopedJuceInit = std::make_unique<ScopedJuceInitialiser_GUI>();
+
+        // Common setup for most tests
+        numChannels = 4;
+        bufferSize = 1000;
+        ringBuffer = std::make_unique<MultiChannelRingBuffer> (numChannels, bufferSize);
+    }
+
+    void TearDown() override
+    {
+        ringBuffer.reset();
+        scopedJuceInit.reset();
+    }
+
+    // Helper function to create test data
+    AudioBuffer<float> createTestBuffer (int channels, int samples, float startValue = 0.0f)
+    {
+        AudioBuffer<float> buffer (channels, samples);
+        for (int ch = 0; ch < channels; ++ch)
+        {
+            for (int sample = 0; sample < samples; ++sample)
+            {
+                // Create distinctive patterns for each channel
+                buffer.setSample (ch, sample, startValue + ch * 1000.0f + sample);
+            }
+        }
+        return buffer;
+    }
+
+    // Helper to verify buffer contents
+    void verifyBufferData (const AudioBuffer<float>& buffer,
+                           int expectedChannels,
+                           int expectedSamples,
+                           float expectedStartValue,
+                           int channelOffset = 0)
+    {
+        EXPECT_EQ (buffer.getNumChannels(), expectedChannels);
+        EXPECT_EQ (buffer.getNumSamples(), expectedSamples);
+
+        for (int ch = 0; ch < expectedChannels; ++ch)
+        {
+            for (int sample = 0; sample < expectedSamples; ++sample)
+            {
+                float expected = expectedStartValue + (ch + channelOffset) * 1000.0f + sample;
+                EXPECT_FLOAT_EQ (buffer.getSample (ch, sample), expected)
+                    << "Channel " << ch << ", Sample " << sample;
+            }
+        }
+    }
+
+    std::unique_ptr<ScopedJuceInitialiser_GUI> scopedJuceInit;
+    int numChannels;
+    int bufferSize;
+    std::unique_ptr<MultiChannelRingBuffer> ringBuffer;
+};
+
+TEST_F (MultiChannelRingBufferTest, ConstructorInitialization)
+{
+    EXPECT_EQ (ringBuffer->getCurrentSampleNumber(), 0);
+    EXPECT_FALSE (ringBuffer->hasEnoughDataForRead (0, 10, 10));
 }
 
-//TEST (FOO, TestCopyFrom)
-//{
-//    int channels = 2;
-//    int samples = 10;
-//    float startValue = 0.0f;
-//    auto inputBuffer = AudioBuffer<float> (channels, samples);
-//    for (int ch = 0; ch < channels; ++ch)
-//    {
-//        for (int sample = 0; sample < samples; ++sample)
-//        {
-//            // Create distinctive patterns for each channel
-//            inputBuffer.setSample (ch, sample, startValue + ch * 1000.0f + sample);
-//        }
-//    }
-//
-//    inputBuffer.clear();
-//    auto otherBuffer = AudioBuffer<float> (channels, samples);
-//
-//    const int writeCount = samples;
-//    const int srcOffset = samples - writeCount;
-//
-//    // first segment (until end of ring)
-//    const int spaceToEnd = 0;
-//    const int blockSize1 = std::min (writeCount, spaceToEnd);
-//    const int numSamplesIn = inputBuffer.getNumSamples();
-//
-//    for (int ch = 0; ch < channels; ++ch)
-//    {
-//        otherBuffer.copyFrom (ch, 0, inputBuffer, ch, srcOffset, blockSize1);
-//    }
-//    auto firstValue = otherBuffer.getSample (0, 0);
-//    firstValue += 0.0f;
-//}
-//
-//TEST (FOO, Bar)
-//{
-//    int channels = 2;
-//    int samples = 10;
-//    float startValue = 0.0f;
-//    auto inputBuffer = AudioBuffer<float> (channels, samples);
-//    for (int ch = 0; ch < channels; ++ch)
-//    {
-//        for (int sample = 0; sample < samples; ++sample)
-//        {
-//            // Create distinctive patterns for each channel
-//            inputBuffer.setSample (ch, sample, startValue + ch * 1000.0f + sample);
-//        }
-//    }
-//    TriggeredAverage::MultiChannelRingBuffer ringBuffer (channels, 100);
-//    ringBuffer.addData (inputBuffer, 123);
-//    EXPECT_EQ (ringBuffer.getCurrentSampleNumber(), 123 + samples);
-//}
-//class MultiChannelRingBufferTest : public ::testing::Test
-//{
-//protected:
-//    void SetUp() override
-//    {
-//        // Common setup for most tests
-//        numChannels = 4;
-//        bufferSize = 1000;
-//        ringBuffer = std::make_unique<MultiChannelRingBuffer> (numChannels, bufferSize);
-//    }
-//
-//    void TearDown() override { ringBuffer.reset(); }
-//
-//    // Helper function to create test data
-//    AudioBuffer<float> createTestBuffer (int channels, int samples, float startValue = 0.0f)
-//    {
-//        AudioBuffer<float> buffer (channels, samples);
-//        for (int ch = 0; ch < channels; ++ch)
-//        {
-//            for (int sample = 0; sample < samples; ++sample)
-//            {
-//                // Create distinctive patterns for each channel
-//                buffer.setSample (ch, sample, startValue + ch * 1000.0f + sample);
-//            }
-//        }
-//        return buffer;
-//    }
-//
-//    // Helper to verify buffer contents
-//    void verifyBufferData (const AudioBuffer<float>& buffer,
-//                           int expectedChannels,
-//                           int expectedSamples,
-//                           float expectedStartValue,
-//                           int channelOffset = 0)
-//    {
-//        EXPECT_EQ (buffer.getNumChannels(), expectedChannels);
-//        EXPECT_EQ (buffer.getNumSamples(), expectedSamples);
-//
-//        for (int ch = 0; ch < expectedChannels; ++ch)
-//        {
-//            for (int sample = 0; sample < expectedSamples; ++sample)
-//            {
-//                float expected = expectedStartValue + (ch + channelOffset) * 1000.0f + sample;
-//                EXPECT_FLOAT_EQ (buffer.getSample (ch, sample), expected)
-//                    << "Channel " << ch << ", Sample " << sample;
-//            }
-//        }
-//    }
-//
-//    int numChannels;
-//    int bufferSize;
-//    std::unique_ptr<MultiChannelRingBuffer> ringBuffer;
-//};
-//
-//TEST_F (MultiChannelRingBufferTest, ConstructorInitialization)
-//{
-//    EXPECT_EQ (ringBuffer->getCurrentSampleNumber(), 0);
-//    EXPECT_FALSE (ringBuffer->hasEnoughDataForRead (0, 10, 10));
-//}
-//
-//TEST_F (MultiChannelRingBufferTest, BasicDataAddition)
-//{
-//    auto testData = createTestBuffer (numChannels, 100, 1.0f);
-//    int64 firstSample = 0;
-//
-//    ringBuffer->addData (testData, firstSample);
-//
-//    EXPECT_EQ (ringBuffer->getCurrentSampleNumber(), 100);
-//    EXPECT_TRUE (ringBuffer->hasEnoughDataForRead (50, 10, 39)); // Total 49 samples, trigger at 50
-//    EXPECT_FALSE (
-//        ringBuffer->hasEnoughDataForRead (50, 10, 40)); // Total 50 samples, would exceed available
-//}
-//
-//TEST_F (MultiChannelRingBufferTest, SimpleTriggeredDataRead)
-//{
-//    auto testData = createTestBuffer (numChannels, 100, 1.0f);
-//    ringBuffer->addData (testData, 0);
-//
-//    AudioBuffer<float> outputBuffer;
-//    Array<int> channels = { 0, 1, 2, 3 };
-//
-//    bool success = ringBuffer->readTriggeredData (50, 10, 10, channels, outputBuffer);
-//
-//    ASSERT_TRUE (success);
-//    EXPECT_EQ (outputBuffer.getNumChannels(), 4);
-//    EXPECT_EQ (outputBuffer.getNumSamples(), 20);
-//
-//    // Verify the data - samples 40-59 should be in the output
-//    verifyBufferData (outputBuffer, 4, 20, 41.0f); // startValue + 40 offset
-//}
-//
-//TEST_F (MultiChannelRingBufferTest, ChannelSubsetRead)
-//{
-//    auto testData = createTestBuffer (numChannels, 100, 1.0f);
-//    ringBuffer->addData (testData, 0);
-//
-//    AudioBuffer<float> outputBuffer;
-//    Array<int> channels = { 1, 3 }; // Only channels 1 and 3
-//
-//    bool success = ringBuffer->readTriggeredData (50, 10, 10, channels, outputBuffer);
-//
-//    ASSERT_TRUE (success);
-//    EXPECT_EQ (outputBuffer.getNumChannels(), 2);
-//    EXPECT_EQ (outputBuffer.getNumSamples(), 20);
-//
-//    // Verify channels 1 and 3 data
-//    for (int sample = 0; sample < 20; ++sample)
-//    {
-//        float expected_ch1 = 1.0f + 1000.0f + (40 + sample); // Channel 1 data
-//        float expected_ch3 = 1.0f + 3000.0f + (40 + sample); // Channel 3 data
-//
-//        EXPECT_FLOAT_EQ (outputBuffer.getSample (0, sample), expected_ch1);
-//        EXPECT_FLOAT_EQ (outputBuffer.getSample (1, sample), expected_ch3);
-//    }
-//}
-//
-//TEST_F (MultiChannelRingBufferTest, InvalidChannelHandling)
-//{
-//    auto testData = createTestBuffer (numChannels, 100, 1.0f);
-//    ringBuffer->addData (testData, 0);
-//
-//    AudioBuffer<float> outputBuffer;
-//    Array<int> channels = { -1, 0, numChannels + 1, 1 }; // Invalid and valid channels
-//
-//    bool success = ringBuffer->readTriggeredData (50, 10, 10, channels, outputBuffer);
-//
-//    ASSERT_TRUE (success);
-//    EXPECT_EQ (outputBuffer.getNumChannels(), 4);
-//
-//    // Invalid channels should be zero
-//    for (int sample = 0; sample < 20; ++sample)
-//    {
-//        EXPECT_FLOAT_EQ (outputBuffer.getSample (0, sample), 0.0f); // Channel -1
-//        EXPECT_FLOAT_EQ (outputBuffer.getSample (2, sample), 0.0f); // Channel numChannels+1
-//    }
-//
-//    // Valid channels should have correct data
-//    for (int sample = 0; sample < 20; ++sample)
-//    {
-//        float expected_ch0 = 1.0f + 0.0f + (40 + sample);
-//        float expected_ch1 = 1.0f + 1000.0f + (40 + sample);
-//
-//        EXPECT_FLOAT_EQ (outputBuffer.getSample (1, sample), expected_ch0);
-//        EXPECT_FLOAT_EQ (outputBuffer.getSample (3, sample), expected_ch1);
-//    }
-//}
+TEST_F (MultiChannelRingBufferTest, BasicDataAddition)
+{
+    auto testData = createTestBuffer (numChannels, 100, 1.0f);
+    int64 firstSample = 0;
+
+    ringBuffer->addData (testData, firstSample);
+
+    EXPECT_EQ (ringBuffer->getCurrentSampleNumber(), 100);
+    EXPECT_TRUE (ringBuffer->hasEnoughDataForRead (50, 10, 39)); // Total 49 samples, trigger at 50
+    EXPECT_FALSE (
+        ringBuffer->hasEnoughDataForRead (50, 10, 40)); // Total 50 samples, would exceed available
+}
+
+TEST_F (MultiChannelRingBufferTest, SimpleTriggeredDataRead)
+{
+    auto testData = createTestBuffer (numChannels, 100, 1.0f);
+    ringBuffer->addData (testData, 0);
+
+    AudioBuffer<float> outputBuffer;
+    Array<int> channels = { 0, 1, 2, 3 };
+
+    bool success = ringBuffer->readTriggeredData (50, 10, 10, channels, outputBuffer);
+
+    ASSERT_TRUE (success);
+    EXPECT_EQ (outputBuffer.getNumChannels(), 4);
+    EXPECT_EQ (outputBuffer.getNumSamples(), 20);
+
+    // Verify the data - samples 40-59 should be in the output
+    verifyBufferData (outputBuffer, 4, 20, 41.0f); // startValue + 40 offset
+}
+
+TEST_F (MultiChannelRingBufferTest, ChannelSubsetRead)
+{
+    auto testData = createTestBuffer (numChannels, 100, 1.0f);
+    ringBuffer->addData (testData, 0);
+
+    AudioBuffer<float> outputBuffer;
+    Array<int> channels = { 1, 3 }; // Only channels 1 and 3
+
+    bool success = ringBuffer->readTriggeredData (50, 10, 10, channels, outputBuffer);
+
+    ASSERT_TRUE (success);
+    EXPECT_EQ (outputBuffer.getNumChannels(), 2);
+    EXPECT_EQ (outputBuffer.getNumSamples(), 20);
+
+    // Verify channels 1 and 3 data
+    for (int sample = 0; sample < 20; ++sample)
+    {
+        float expected_ch1 = 1.0f + 1000.0f + (40 + sample); // Channel 1 data
+        float expected_ch3 = 1.0f + 3000.0f + (40 + sample); // Channel 3 data
+
+        EXPECT_FLOAT_EQ (outputBuffer.getSample (0, sample), expected_ch1);
+        EXPECT_FLOAT_EQ (outputBuffer.getSample (1, sample), expected_ch3);
+    }
+}
+TEST_F (MultiChannelRingBufferTest, EdgeCaseReads)
+{
+    auto testData = createTestBuffer (numChannels, 100, 1.0f);
+    ringBuffer->addData (testData, 1000); // Start from sample 1000
+
+    AudioBuffer<float> outputBuffer;
+    Array<int> channels = { 0 };
+
+    // Read exactly at the beginning of available data
+    bool success = ringBuffer->readTriggeredData (1000, 0, 1, channels, outputBuffer);
+    ASSERT_TRUE (success);
+    EXPECT_EQ (outputBuffer.getNumSamples(), 1);
+
+    // Read exactly at the end of available data
+    success = ringBuffer->readTriggeredData (1099, 0, 1, channels, outputBuffer);
+    ASSERT_TRUE (success);
+
+    // Try to read beyond available data
+    success = ringBuffer->readTriggeredData (1100, 0, 1, channels, outputBuffer);
+    EXPECT_FALSE (success);
+
+    // Try to read before available data
+    success = ringBuffer->readTriggeredData (999, 0, 1, channels, outputBuffer);
+    EXPECT_FALSE (success);
+}
 //
 //TEST_F (MultiChannelRingBufferTest, BufferWrapAround)
 //{
