@@ -80,8 +80,8 @@ RingBufferReadResult
     if (result != RingBufferReadResult::Success)
         return result;
 
-    // TODO: This should be lock free if we stay behind the write index
-    const std::scoped_lock lock (writeLock);
+    // Lock-free implementation: We're reading data that's already been written
+    // and won't be modified since we're staying behind the write index.
     auto bufferStartPos = startSample.value();
     const int64 totalSamples = preSamples + postSamples;
 
@@ -109,6 +109,30 @@ RingBufferReadResult
     return RingBufferReadResult::Success;
 }
 
+/**
+ * Calculates the starting position in the ring buffer for a triggered read operation.
+ * 
+ * This method determines if a requested time window can be read from the ring buffer
+ * and calculates the appropriate starting position if successful.
+ * 
+ * @param centerSample The sample number at which the trigger event occured
+ * @param preSamples Number of samples to read BEFORE the trigger (centerSample - preSamples is the start)
+ * @param postSamples Number of samples to read AFTER the trigger (up to but not including centerSample + postSamples)
+ * 
+ * Total samples to be read: preSamples + postSamples
+ * Read window: [centerSample - preSamples, centerSample + postSamples)
+ * 
+ * Example: centerSample=1000, preSamples=100, postSamples=200
+ *   - Will read samples 900 to 1199 (300 samples total)
+ *   - Sample 900-999: pre-trigger data (100 samples)
+ *   - Sample 1000-1199: post-trigger data (200 samples)
+ * 
+ * @return A pair containing:
+ *   - RingBufferReadResult indicating success or failure reason
+ *   - Optional buffer start position (valid only if result is Success)
+ * 
+ * @note This method is lock-free as it only reads atomic variables
+ */
 std::pair<RingBufferReadResult, std::optional<int64>>
     MultiChannelRingBuffer::getStartSampleForTriggeredRead (int64 centerSample,
                                                   int preSamples,
