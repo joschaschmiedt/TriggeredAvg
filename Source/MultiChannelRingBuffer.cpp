@@ -70,7 +70,7 @@ void MultiChannelRingBuffer::addData (const AudioBuffer<float>& inputBuffer,
 }
 
 RingBufferReadResult
-    MultiChannelRingBuffer::readTriggeredData (SampleNumber centerSample,
+    MultiChannelRingBuffer::readAroundSample (SampleNumber centerSample,
                                                int preSamples,
                                                int postSamples,
                                                const Array<int>& channelIndices,

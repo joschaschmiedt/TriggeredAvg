@@ -95,10 +95,7 @@ public:
     int m_dataStreamIndex = 0;
 
 private:
-    /** Responds to incoming broadcast messages */
     void handleBroadcastMessage (const String& message, const int64 sysTimeMs) override;
-
-    /** Responds to incoming configuration messages */
     String handleConfigMessage (const String& message) override;
 
     /** Helper method for parsing dynamic objects */
@@ -108,16 +105,11 @@ private:
                       int lowerBound,
                       int upperBound);
 
-    /** Pushes incoming events to trigger detector */
     void handleTTLEvent (TTLEventPtr event) override;
-
     /** Updates UI with completed captures */
     void timerCallback() override;
 
-    /** Initialize threading components */
     void initializeThreads();
-
-    /** Shutdown threading components */
     void shutdownThreads();
 
     std::unique_ptr<MultiChannelRingBuffer> ringBuffer;

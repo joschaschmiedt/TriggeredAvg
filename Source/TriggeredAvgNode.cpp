@@ -101,6 +101,7 @@ void TriggeredAvgNode::parameterValueChanged (Parameter* param)
     // Update trial buffers when max trials changes
     if (param->getName().equalsIgnoreCase (max_trials))
     {
+        // TODO:
     }
     else if (param->getName().equalsIgnoreCase (trigger_line))
     {
@@ -121,17 +122,25 @@ void TriggeredAvgNode::parameterValueChanged (Parameter* param)
                 currentTriggerSource->canTrigger = false;
         }
     }
+    else if (param->getName().equalsIgnoreCase (ParameterNames::pre_ms))
+    {
+        // TODO:
+    }
+    else if (param->getName().equalsIgnoreCase (ParameterNames::post_ms))
+    {
+        // TODO:
+    }
 }
 
 void TriggeredAvgNode::process (AudioBuffer<float>& buffer)
 {
-    int64 firstSampleNumber =
+    SampleNumber firstSampleNumber =
         getFirstSampleNumberForBlock (getDataStreams()[m_dataStreamIndex]->getStreamId());
     if (! ringBuffer)
         return;
 
     ringBuffer->addData (buffer, firstSampleNumber);
-    checkForEvents (true);
+    checkForEvents (false);
 }
 
 void TriggeredAvgNode::prepareToPlay (double sampleRate, int maximumExpectedSamplesPerBlock)
@@ -330,7 +339,12 @@ void TriggeredAvgNode::handleTTLEvent (TTLEventPtr event)
             if (event->getLine() == source->line && event->getState() && source->canTrigger)
             {
                 //dataCollector->pushEvent (source, event->getStreamId(), event->getSampleNumber());
-                dataCollector->registerTTLTrigger (event);
+                int preSamples =
+                    (int) (getSampleRate (m_dataStreamIndex) * (getPreWindowSizeMs() / 1000.0f));
+                int postSamples =
+                    (int) (getSampleRate (m_dataStreamIndex) * (getPostWindowSizeMs() / 1000.0f));
+                dataCollector->registerCaptureRequest (
+                    CaptureRequest { event->getSampleNumber(), preSamples, postSamples });
 
                 if (source->type == TriggerType::TTL_AND_MSG_TRIGGER)
                     source->canTrigger = false;

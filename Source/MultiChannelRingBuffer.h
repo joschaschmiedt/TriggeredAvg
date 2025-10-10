@@ -23,7 +23,7 @@ public:
     ~MultiChannelRingBuffer() = default;
     auto addData (const juce::AudioBuffer<float>& inputBuffer, SampleNumber firstSampleNumber)
         -> void;
-    auto readTriggeredData (SampleNumber triggerSample,
+    auto readAroundSample (SampleNumber triggerSample,
                             int preSamples,
                             int postSamples,
                             const juce::Array<int>& channelIndices,
