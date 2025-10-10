@@ -34,12 +34,13 @@ using namespace TriggeredAverage;
 TriggeredAvgNode::TriggeredAvgNode()
     : GenericProcessor ("Triggered Avg"),
       canvas (nullptr),
-      // TODO: Think if 10 seconds buffer is sufficient (lock-free?) and how to handle more than one stream
-      ringBufferSize (static_cast<int> (GenericProcessor::getSampleRate (m_dataStreamIndex) * 10.0f)),
+      // TODO: check if 10 seconds buffer is sufficient (lock-free?) and how to handle more than one stream
+      ringBufferSize (
+          static_cast<int> (GenericProcessor::getSampleRate (m_dataStreamIndex) * 10.0f)),
       threadsInitialized (false) // 10 seconds buffer
 {
     addFloatParameter (Parameter::PROCESSOR_SCOPE,
-                       "pre_ms",
+                       ParameterNames::pre_ms,
                        "Pre MS",
                        "Size of the pre-trigger window in ms",
                        "ms",
@@ -49,7 +50,7 @@ TriggeredAvgNode::TriggeredAvgNode()
                        10.0f);
 
     addFloatParameter (Parameter::PROCESSOR_SCOPE,
-                       "post_ms",
+                       ParameterNames::post_ms,
                        "Post MS",
                        "Size of the post-trigger window in ms",
                        "ms",
@@ -59,7 +60,7 @@ TriggeredAvgNode::TriggeredAvgNode()
                        10.0f);
 
     addIntParameter (Parameter::PROCESSOR_SCOPE,
-                     "max_trials",
+                     ParameterNames::max_trials,
                      "Max Trials",
                      "Maximum number of trials to store per condition",
                      10,
@@ -67,7 +68,7 @@ TriggeredAvgNode::TriggeredAvgNode()
                      100);
 
     addIntParameter (Parameter::PROCESSOR_SCOPE,
-                     "trigger_line",
+                     ParameterNames::trigger_line,
                      "Trigger Line",
                      "The input TTL line of the current trigger source",
                      0,
@@ -75,7 +76,7 @@ TriggeredAvgNode::TriggeredAvgNode()
                      255);
 
     addIntParameter (Parameter::PROCESSOR_SCOPE,
-                     "trigger_type",
+                     ParameterNames::trigger_type,
                      "Trigger Type",
                      "The type of the current trigger source",
                      1,
@@ -96,18 +97,19 @@ AudioProcessorEditor* TriggeredAvgNode::createEditor()
 
 void TriggeredAvgNode::parameterValueChanged (Parameter* param)
 {
+    using namespace ParameterNames;
     // Update trial buffers when max trials changes
-    if (param->getName().equalsIgnoreCase ("max_trials"))
+    if (param->getName().equalsIgnoreCase (max_trials))
     {
     }
-    else if (param->getName().equalsIgnoreCase ("trigger_line"))
+    else if (param->getName().equalsIgnoreCase (trigger_line))
     {
         if (currentTriggerSource != nullptr)
         {
             currentTriggerSource->line = (int) param->getValue();
         }
     }
-    else if (param->getName().equalsIgnoreCase ("trigger_type"))
+    else if (param->getName().equalsIgnoreCase (trigger_type))
     {
         if (currentTriggerSource != nullptr)
         {
@@ -123,7 +125,8 @@ void TriggeredAvgNode::parameterValueChanged (Parameter* param)
 
 void TriggeredAvgNode::process (AudioBuffer<float>& buffer)
 {
-    int64 firstSampleNumber = getFirstSampleNumberForBlock (getDataStreams()[m_dataStreamIndex]->getStreamId());
+    int64 firstSampleNumber =
+        getFirstSampleNumberForBlock (getDataStreams()[m_dataStreamIndex]->getStreamId());
     if (! ringBuffer)
         return;
 
@@ -137,9 +140,15 @@ void TriggeredAvgNode::prepareToPlay (double sampleRate, int maximumExpectedSamp
     initializeThreads();
 }
 
-float TriggeredAvgNode::getPreWindowSizeMs() const { return getParameter ("pre_ms")->getValue(); }
+float TriggeredAvgNode::getPreWindowSizeMs() const
+{
+    return getParameter (ParameterNames::pre_ms)->getValue();
+}
 
-float TriggeredAvgNode::getPostWindowSizeMs() const { return getParameter ("post_ms")->getValue(); }
+float TriggeredAvgNode::getPostWindowSizeMs() const
+{
+    return getParameter (ParameterNames::post_ms)->getValue();
+}
 
 Array<TriggerSource*> TriggeredAvgNode::getTriggerSources()
 {
@@ -334,7 +343,7 @@ void TriggeredAvgNode::timerCallback()
 {
     // TODO: Whats the purpose of this timer?
     //if (! threadsInitialized.load())
-        //return;
+    //return;
 
     //TriggerSource* source;
     //AudioBuffer<float> data;

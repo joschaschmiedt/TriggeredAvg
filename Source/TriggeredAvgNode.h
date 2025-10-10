@@ -35,8 +35,17 @@ class DataCollector;
 class MultiChannelRingBuffer;
 class TriggerSource;
 enum class TriggerType : std::int_fast8_t;
-
 class TriggeredAvgCanvas;
+
+namespace ParameterNames
+{
+    constexpr auto pre_ms = "pre_ms";
+    constexpr auto post_ms = "post_ms";
+    constexpr auto max_trials = "max_trials";
+    constexpr auto trigger_line = "trigger_line";
+    constexpr auto trigger_type = "trigger_type";
+
+} // namespace ParameterNames
 
 class TriggeredAvgNode : public GenericProcessor, public ::Timer
 {
@@ -53,7 +62,7 @@ public:
     // parameters
     float getPreWindowSizeMs() const;
     float getPostWindowSizeMs() const;
-    int getMaxTrials() const { return (int) getParameter ("max_trials")->getValue(); }
+    int getMaxTrials() const { return (int) getParameter (ParameterNames::max_trials)->getValue(); }
 
     // trigger sources
     Array<TriggerSource*> getTriggerSources();
