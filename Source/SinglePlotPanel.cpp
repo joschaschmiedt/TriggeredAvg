@@ -1,6 +1,6 @@
 #include "SinglePlotPanel.h"
-#include "GridDisplay.h"
 #include "TriggeredAvgCanvas.h"
+#include "TriggerSource.h"
 
 using namespace TriggeredAverage;
 const static Colour panelBackground { 30, 30, 40 };

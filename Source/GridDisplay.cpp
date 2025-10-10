@@ -1,6 +1,7 @@
 #include "GridDisplay.h"
 #include "SinglePlotPanel.h"
 #include "TriggeredAvgNode.h"
+#include "TriggerSource.h"
 
 TriggeredAverage::GridDisplay::GridDisplay() = default;
 

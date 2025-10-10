@@ -15,7 +15,7 @@ MultiChannelRingBuffer::MultiChannelRingBuffer (int numChannels_, int bufferSize
 }
 
 void MultiChannelRingBuffer::addData (const AudioBuffer<float>& inputBuffer,
-                                      int64 firstSampleNumber)
+                                      SampleNumber firstSampleNumber)
 {
     const std::scoped_lock lock (writeLock);
 
@@ -70,20 +70,21 @@ void MultiChannelRingBuffer::addData (const AudioBuffer<float>& inputBuffer,
 }
 
 RingBufferReadResult
-    MultiChannelRingBuffer::readTriggeredData (int64 centerSample,
+    MultiChannelRingBuffer::readTriggeredData (SampleNumber centerSample,
                                                int preSamples,
                                                int postSamples,
-                                               Array<int> channelIndices,
+                                               const Array<int>& channelIndices,
                                                AudioBuffer<float>& outputBuffer) const
 {
-    auto [result, startSample] = getStartSampleForTriggeredRead (centerSample, preSamples, postSamples);
-    if (result != RingBufferReadResult::Success)
+    auto [result, startSample] =
+        getStartSampleForTriggeredRead (centerSample, preSamples, postSamples);
+    if (result != RingBufferReadResult::Success || ! startSample.has_value())
         return result;
 
     // Lock-free implementation: We're reading data that's already been written
     // and won't be modified since we're staying behind the write index.
     auto bufferStartPos = startSample.value();
-    const int64 totalSamples = preSamples + postSamples;
+    const int totalSamples = preSamples + postSamples;
 
     outputBuffer.setSize (channelIndices.size(), totalSamples);
 
@@ -133,36 +134,37 @@ RingBufferReadResult
  * 
  * @note This method is lock-free as it only reads atomic variables
  */
-std::pair<RingBufferReadResult, std::optional<int64>>
-    MultiChannelRingBuffer::getStartSampleForTriggeredRead (int64 centerSample,
-                                                  int preSamples,
-                                                  int postSamples) const
+std::pair<RingBufferReadResult, std::optional<int>>
+    MultiChannelRingBuffer::getStartSampleForTriggeredRead (SampleNumber centerSample,
+                                                            int preSamples,
+                                                            int postSamples) const
 {
     // this does not require locking as it only reads atomic variables
     const int totalSamples = preSamples + postSamples;
     if (totalSamples <= 0)
         return { RingBufferReadResult::InvalidParameters, std::nullopt };
 
-    const int64 startSample = centerSample - preSamples;
-    const int64 endExclusive = startSample + totalSamples;
-    
-    const int64 currentSample = m_nextSampleNumber.load();
+    const SampleNumber requestedStartSample = centerSample - preSamples;
+    const SampleNumber requestedEndSampleExclusive = requestedStartSample + totalSamples;
+
+    const SampleNumber nextSampleNumber = m_nextSampleNumber.load();
     const int nValidSamplesInBuffer = m_nValidSamplesInBuffer.load();
-    const int64 oldestSample = currentSample - nValidSamplesInBuffer;
+    const SampleNumber oldestSample = nextSampleNumber - nValidSamplesInBuffer;
 
     // window must be inside [oldest, current)
-    if (startSample < oldestSample)
+    if (requestedStartSample < oldestSample)
         return { RingBufferReadResult::DataInRingBufferTooOld, std::nullopt };
-    
-    if (endExclusive > currentSample)
+
+    if (requestedEndSampleExclusive > nextSampleNumber)
         return { RingBufferReadResult::NotEnoughNewData, std::nullopt };
 
     // Calculate ring buffer position
     const int writeIndex = m_writeIndex.load();
     const int oldestIndex = (writeIndex - nValidSamplesInBuffer + m_bufferSize) % m_bufferSize;
-    const int64 bufferStartPos = (oldestIndex + (startSample - oldestSample)) % m_bufferSize;
-    
-    return { RingBufferReadResult::Success, bufferStartPos };
+    const int startBufferIndex = (oldestIndex + (requestedStartSample - oldestSample))  // NOLINT(bugprone-narrowing-conversions)
+                                 % m_bufferSize; // NOLINT(bugprone-narrowing-conversions)
+
+    return { RingBufferReadResult::Success, startBufferIndex };
 }
 
 void MultiChannelRingBuffer::reset()

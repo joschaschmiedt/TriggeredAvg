@@ -2,10 +2,11 @@
 #include <JuceHeader.h>
 #include <atomic>
 #include <mutex>
-using int64 = std::int64_t;
 
 namespace TriggeredAverage
 {
+
+using SampleNumber = std::int64_t;
 
 enum class RingBufferReadResult : std::int_fast8_t
 {
@@ -20,27 +21,29 @@ class MultiChannelRingBuffer
 public:
     MultiChannelRingBuffer (int numChannels, int bufferSize);
     ~MultiChannelRingBuffer() = default;
-    auto addData (const juce::AudioBuffer<float>& inputBuffer, int64 firstSampleNumber) -> void;
-    auto readTriggeredData (int64 triggerSample,
+    auto addData (const juce::AudioBuffer<float>& inputBuffer, SampleNumber firstSampleNumber)
+        -> void;
+    auto readTriggeredData (SampleNumber triggerSample,
                             int preSamples,
                             int postSamples,
-                            juce::Array<int> channelIndices,
+                            const juce::Array<int>& channelIndices,
                             juce::AudioBuffer<float>& outputBuffer) const -> RingBufferReadResult;
 
-    auto getCurrentSampleNumber() const -> int64 { return m_nextSampleNumber.load(); }
+    auto getCurrentSampleNumber() const -> SampleNumber { return m_nextSampleNumber.load(); }
     auto getBufferSize() const -> int { return m_bufferSize; }
-    auto getStartSampleForTriggeredRead (int64 centerSample, int preSamples, int postSamples) const
-        -> std::pair<RingBufferReadResult, std::optional<int64>>;
+    auto getStartSampleForTriggeredRead (SampleNumber centerSample, int preSamples, int postSamples) const
+        -> std::pair<RingBufferReadResult, std::optional<int>>;
 
     void reset();
 
 private:
     juce::AudioBuffer<float> m_buffer;
-    juce::Array<int64> m_sampleNumbers;
+    juce::Array<SampleNumber> m_sampleNumbers;
 
-    std::atomic<int64> m_nextSampleNumber = 0;
+    std::atomic<SampleNumber> m_nextSampleNumber = 0;
     std::atomic<int> m_writeIndex = 0;
-    std::atomic<int> m_nValidSamplesInBuffer = 0; // number of valid samples currently stored (<= bufferSize)
+    std::atomic<int> m_nValidSamplesInBuffer =
+        0; // number of valid samples currently stored (<= bufferSize)
 
     int m_nChannels;
     int m_bufferSize;

@@ -25,6 +25,7 @@
 #include "TriggeredAvgActions.h"
 #include "TriggeredAvgEditor.h"
 #include "TriggeredAvgNode.h"
+#include "TriggerSource.h"
 
 using namespace TriggeredAverage;
 

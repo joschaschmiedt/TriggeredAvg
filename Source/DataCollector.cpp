@@ -1,10 +1,10 @@
 #include "DataCollector.h"
 #include "MultiChannelRingBuffer.h"
+#include "TriggerSource.h"
 #include "TriggeredAvgNode.h"
 #include <ProcessorHeaders.h>
 
 using namespace TriggeredAverage;
-// using enum TriggeredAverage::TriggerType;
 
 DataCollector::DataCollector (TriggeredAvgNode* viewer_, MultiChannelRingBuffer* buffer_)
     : Thread ("Trigger Detector"),
@@ -16,21 +16,6 @@ DataCollector::DataCollector (TriggeredAvgNode* viewer_, MultiChannelRingBuffer*
 }
 
 DataCollector::~DataCollector() { stopThread (1000); }
-
-void DataCollector::pushEvent (const TriggerSource* source, uint16 streamId, int64 sample_number)
-{
-    //if (source->type == TriggerType::TTL_TRIGGER
-    //    || source->type == TriggerType::TTL_AND_MSG_TRIGGER)
-    //{
-    //    auto ttlEvent =
-    //        TTLEvent::createTTLEvent (, sample_number, (uint8) source->line, true);
-    //    registerTTLTrigger (ttlEvent);
-    //}
-    // else if (source->type == TriggerType::MSG_TRIGGER)
-    // {
-    //     registerMessageTrigger (source->name, sample_number);
-    // }
-}
 
 void DataCollector::registerTTLTrigger (TTLEventPtr ttlEvent)
 {
@@ -107,7 +92,7 @@ void DataCollector::processTriggerEvent (TTLEventPtr event)
 struct CaptureRequest
 {
     TriggerSource* source;
-    int64 triggerSample;
+    SampleNumber triggerSample;
     int preSamples;
     int postSamples;
     Array<int> channelIndices;

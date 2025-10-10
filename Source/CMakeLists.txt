@@ -6,6 +6,7 @@ set(TRIGGERED_AVG_SOURCES_RELATIVE
     PopupConfigurationWindow.cpp
     SinglePlotPanel.cpp
     TimeAxis.cpp
+    TriggerSource.cpp
     TriggeredAvgActions.cpp
     TriggeredAvgCanvas.cpp
     TriggeredAvgEditor.cpp
@@ -18,6 +19,7 @@ set(TRIGGERED_AVG_HEADERS_RELATIVE
     MultiChannelRingBuffer.h
     SinglePlotPanel.h
     TimeAxis.h
+    TriggerSource.h
     TriggeredAvgActions.h
     TriggeredAvgCanvas.h
     TriggeredAvgEditor.h

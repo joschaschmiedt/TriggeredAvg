@@ -33,63 +33,8 @@ namespace TriggeredAverage
 class TriggeredAvgNode;
 class DataCollector;
 class MultiChannelRingBuffer;
-
-enum class TriggerType : std::int_fast8_t
-{
-    TTL_TRIGGER = 1,
-    MSG_TRIGGER = 2,
-    TTL_AND_MSG_TRIGGER = 3
-};
-
-constexpr auto TriggerTypeToString (TriggerType type)
-{
-    switch (type)
-    {
-        case TriggerType::TTL_TRIGGER:
-            return "TTL Trigger";
-        case TriggerType::MSG_TRIGGER:
-            return "Message Trigger";
-        case TriggerType::TTL_AND_MSG_TRIGGER:
-            return "TTL and Message Trigger";
-        default:
-            return "Unknown Trigger Type";
-    }
-}
-
-class TriggerSource
-{
-public:
-    TriggerSource (TriggeredAvgNode* processor_, String name_, int line_, TriggerType type_)
-        : name (name_),
-          line (line_),
-          type (type_),
-          processor (processor_)
-    {
-        if (type == TriggerType::TTL_TRIGGER)
-            canTrigger = true;
-        else
-            canTrigger = false;
-
-        colour = getColourForLine (line);
-    }
-
-    static Colour getColourForLine (int line)
-    {
-        Array<Colour> eventColours = { Colour (224, 185, 36),  Colour (243, 119, 33),
-                                       Colour (237, 37, 36),   Colour (217, 46, 171),
-                                       Colour (101, 31, 255),  Colour (48, 117, 255),
-                                       Colour (116, 227, 156), Colour (82, 173, 0) };
-
-        return eventColours[line % 8];
-    }
-
-    String name;
-    int line;
-    TriggerType type;
-    TriggeredAvgNode* processor;
-    bool canTrigger;
-    Colour colour;
-};
+class TriggerSource;
+enum class TriggerType : std::int_fast8_t;
 
 class TriggeredAvgCanvas;
 
@@ -136,6 +81,9 @@ public:
     /** Saves trigger source parameters */
     void loadCustomParametersFromXml (XmlElement* xml) override;
     TriggeredAvgCanvas* canvas;
+
+    // TODO: should we use this?
+    int m_dataStreamIndex = 0;
 
 private:
     /** Responds to incoming broadcast messages */

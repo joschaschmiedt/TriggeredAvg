@@ -25,6 +25,7 @@
 #include "TriggeredAvgNode.h"
 #include "DataCollector.h"
 #include "MultiChannelRingBuffer.h"
+#include "TriggerSource.h"
 #include "TriggeredAvgCanvas.h"
 #include "TriggeredAvgEditor.h"
 
@@ -33,7 +34,8 @@ using namespace TriggeredAverage;
 TriggeredAvgNode::TriggeredAvgNode()
     : GenericProcessor ("Triggered Avg"),
       canvas (nullptr),
-      ringBufferSize (getSampleRate (0) * 10),
+      // TODO: Think if 10 seconds buffer is sufficient (lock-free?) and how to handle more than one stream
+      ringBufferSize (static_cast<int> (GenericProcessor::getSampleRate (m_dataStreamIndex) * 10.0f)),
       threadsInitialized (false) // 10 seconds buffer
 {
     addFloatParameter (Parameter::PROCESSOR_SCOPE,
@@ -121,7 +123,7 @@ void TriggeredAvgNode::parameterValueChanged (Parameter* param)
 
 void TriggeredAvgNode::process (AudioBuffer<float>& buffer)
 {
-    int64 firstSampleNumber = getFirstSampleNumberForBlock (getDataStreams()[0]->getStreamId());
+    int64 firstSampleNumber = getFirstSampleNumberForBlock (getDataStreams()[m_dataStreamIndex]->getStreamId());
     if (! ringBuffer)
         return;
 
@@ -284,8 +286,8 @@ void TriggeredAvgNode::handleBroadcastMessage (const String& message, const int6
                     for (auto stream : getDataStreams())
                     {
                         const uint16 streamId = stream->getStreamId();
-                        dataCollector->pushEvent (
-                            source, streamId, getFirstSampleNumberForBlock (streamId));
+                        // TODO: Do something
+                        assert (false);
                     }
                 }
             }
@@ -320,7 +322,6 @@ void TriggeredAvgNode::handleTTLEvent (TTLEventPtr event)
             {
                 //dataCollector->pushEvent (source, event->getStreamId(), event->getSampleNumber());
                 dataCollector->registerTTLTrigger (event);
-                ;
 
                 if (source->type == TriggerType::TTL_AND_MSG_TRIGGER)
                     source->canTrigger = false;
@@ -331,12 +332,13 @@ void TriggeredAvgNode::handleTTLEvent (TTLEventPtr event)
 
 void TriggeredAvgNode::timerCallback()
 {
-    if (! threadsInitialized.load())
-        return;
+    // TODO: Whats the purpose of this timer?
+    //if (! threadsInitialized.load())
+        //return;
 
-    TriggerSource* source;
-    AudioBuffer<float> data;
-    int64 triggerSample;
+    //TriggerSource* source;
+    //AudioBuffer<float> data;
+    //int64 triggerSample;
 }
 
 void TriggeredAvgNode::initializeThreads()

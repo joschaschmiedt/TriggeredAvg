@@ -14,13 +14,11 @@ class DataCollector : public Thread
 public:
     DataCollector (TriggeredAvgNode* viewer, MultiChannelRingBuffer* buffer);
     ~DataCollector() override;
+    void run() override;
 
-    void pushEvent (const TriggerSource* source, uint16 streamId, int64 sample_number);
     void registerTTLTrigger (TTLEventPtr);
     void registerMessageTrigger (const String& message, int64 sampleNumber);
 
-    /** Thread run function */
-    void run() override;
 
 private:
     TriggeredAvgNode* viewer;
