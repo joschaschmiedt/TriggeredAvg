@@ -103,7 +103,7 @@ TEST_F (MultiChannelRingBufferTest, SimpleTriggeredDataRead)
     AudioBuffer<float> outputBuffer;
     Array<int> channels = { 0, 1, 2, 3 };
 
-    auto result = ringBuffer->readTriggeredData (50, 10, 10, channels, outputBuffer);
+    auto result = ringBuffer->readAroundSample (50, 10, 10, channels, outputBuffer);
 
     ASSERT_EQ (result, RingBufferReadResult::Success);
     EXPECT_EQ (outputBuffer.getNumChannels(), 4);
@@ -121,7 +121,7 @@ TEST_F (MultiChannelRingBufferTest, ChannelSubsetRead)
     AudioBuffer<float> outputBuffer;
     Array<int> channels = { 1, 3 }; // Only channels 1 and 3
 
-    auto success = ringBuffer->readTriggeredData (50, 10, 10, channels, outputBuffer);
+    auto success = ringBuffer->readAroundSample (50, 10, 10, channels, outputBuffer);
 
     ASSERT_EQ (success, RingBufferReadResult::Success);
     EXPECT_EQ (outputBuffer.getNumChannels(), 2);
@@ -146,20 +146,20 @@ TEST_F (MultiChannelRingBufferTest, EdgeCaseReads)
     Array<int> channels = { 0 };
 
     // Read exactly at the beginning of available data
-    auto success = ringBuffer->readTriggeredData (1000, 0, 1, channels, outputBuffer);
+    auto success = ringBuffer->readAroundSample (1000, 0, 1, channels, outputBuffer);
     ASSERT_EQ (success, RingBufferReadResult::Success);
     EXPECT_EQ (outputBuffer.getNumSamples(), 1);
 
     // Read exactly at the end of available data
-    success = ringBuffer->readTriggeredData (1099, 0, 1, channels, outputBuffer);
+    success = ringBuffer->readAroundSample (1099, 0, 1, channels, outputBuffer);
     ASSERT_EQ (success, RingBufferReadResult::Success);
 
     // Try to read beyond available data
-    success = ringBuffer->readTriggeredData (1100, 0, 1, channels, outputBuffer);
+    success = ringBuffer->readAroundSample (1100, 0, 1, channels, outputBuffer);
     ASSERT_NE (success, RingBufferReadResult::Success);
 
     // Try to read before available data
-    success = ringBuffer->readTriggeredData (999, 0, 1, channels, outputBuffer);
+    success = ringBuffer->readAroundSample (999, 0, 1, channels, outputBuffer);
     ASSERT_NE (success, RingBufferReadResult::Success);
 }
 //
@@ -182,7 +182,7 @@ TEST_F (MultiChannelRingBufferTest, EdgeCaseReads)
 //    AudioBuffer<float> outputBuffer;
 //    Array<int> channels = { 0, 1 };
 //
-//    bool success = smallRingBuffer->readTriggeredData (70, 10, 5, channels, outputBuffer);
+//    bool success = smallRingBuffer->readAroundSample (70, 10, 5, channels, outputBuffer);
 //
 //    ASSERT_TRUE (success);
 //    EXPECT_EQ (outputBuffer.getNumSamples(), 15);
@@ -217,13 +217,13 @@ TEST_F (MultiChannelRingBufferTest, EdgeCaseReads)
 //
 //    // Try to read data that should be available (last part of the large block)
 //    int64 triggerSample = ringBuffer->getCurrentSampleNumber() - 100;
-//    bool success = ringBuffer->readTriggeredData (triggerSample, 50, 49, channels, outputBuffer);
+//    bool success = ringBuffer->readAroundSample (triggerSample, 50, 49, channels, outputBuffer);
 //
 //    ASSERT_TRUE (success);
 //
 //    // Try to read data that should be too old
 //    triggerSample = 250; // This should be before the oldest available data
-//    success = ringBuffer->readTriggeredData (triggerSample, 50, 49, channels, outputBuffer);
+//    success = ringBuffer->readAroundSample (triggerSample, 50, 49, channels, outputBuffer);
 //
 //    EXPECT_FALSE (success);
 //}
@@ -237,20 +237,20 @@ TEST_F (MultiChannelRingBufferTest, EdgeCaseReads)
 //    Array<int> channels = { 0 };
 //
 //    // Read exactly at the beginning of available data
-//    bool success = ringBuffer->readTriggeredData (1000, 0, 1, channels, outputBuffer);
+//    bool success = ringBuffer->readAroundSample (1000, 0, 1, channels, outputBuffer);
 //    ASSERT_TRUE (success);
 //    EXPECT_EQ (outputBuffer.getNumSamples(), 1);
 //
 //    // Read exactly at the end of available data
-//    success = ringBuffer->readTriggeredData (1099, 0, 1, channels, outputBuffer);
+//    success = ringBuffer->readAroundSample (1099, 0, 1, channels, outputBuffer);
 //    ASSERT_TRUE (success);
 //
 //    // Try to read beyond available data
-//    success = ringBuffer->readTriggeredData (1100, 0, 1, channels, outputBuffer);
+//    success = ringBuffer->readAroundSample (1100, 0, 1, channels, outputBuffer);
 //    EXPECT_FALSE (success);
 //
 //    // Try to read before available data
-//    success = ringBuffer->readTriggeredData (999, 0, 1, channels, outputBuffer);
+//    success = ringBuffer->readAroundSample (999, 0, 1, channels, outputBuffer);
 //    EXPECT_FALSE (success);
 //}
 //
@@ -263,11 +263,11 @@ TEST_F (MultiChannelRingBufferTest, EdgeCaseReads)
 //    Array<int> channels = { 0 };
 //
 //    // Zero pre and post samples
-//    bool success = ringBuffer->readTriggeredData (50, 0, 0, channels, outputBuffer);
+//    bool success = ringBuffer->readAroundSample (50, 0, 0, channels, outputBuffer);
 //    EXPECT_FALSE (success);
 //
 //    // Negative samples should also fail
-//    success = ringBuffer->readTriggeredData (50, -5, 10, channels, outputBuffer);
+//    success = ringBuffer->readAroundSample (50, -5, 10, channels, outputBuffer);
 //    EXPECT_FALSE (success);
 //}
 //

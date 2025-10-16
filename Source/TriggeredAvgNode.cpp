@@ -338,13 +338,15 @@ void TriggeredAvgNode::handleTTLEvent (TTLEventPtr event)
         {
             if (event->getLine() == source->line && event->getState() && source->canTrigger)
             {
-                //dataCollector->pushEvent (source, event->getStreamId(), event->getSampleNumber());
-                int preSamples =
-                    (int) (getSampleRate (m_dataStreamIndex) * (getPreWindowSizeMs() / 1000.0f));
-                int postSamples =
-                    (int) (getSampleRate (m_dataStreamIndex) * (getPostWindowSizeMs() / 1000.0f));
-                dataCollector->registerCaptureRequest (
-                    CaptureRequest { event->getSampleNumber(), preSamples, postSamples });
+                int preSamples = static_cast<int> (getSampleRate (m_dataStreamIndex)
+                                                   * (getPreWindowSizeMs() / 1000.0f));
+                int postSamples = static_cast<int> (getSampleRate (m_dataStreamIndex)
+                                                    * (getPostWindowSizeMs() / 1000.0f));
+
+                // TODO:
+                juce::Array<int> channels = {};
+                dataCollector->registerCaptureRequest (CaptureRequest {
+                    source, event->getSampleNumber(), preSamples, postSamples, channels });
 
                 if (source->type == TriggerType::TTL_AND_MSG_TRIGGER)
                     source->canTrigger = false;
