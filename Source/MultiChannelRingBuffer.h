@@ -10,6 +10,7 @@ using SampleNumber = std::int64_t;
 
 enum class RingBufferReadResult : std::int_fast8_t
 {
+    UnknownError = -1,
     Success = 0,
     NotEnoughNewData = 1,
     DataInRingBufferTooOld = 2,

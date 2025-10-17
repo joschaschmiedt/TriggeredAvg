@@ -23,7 +23,7 @@ void MultiChannelRingBuffer::addData (const AudioBuffer<float>& inputBuffer,
     if (numSamplesIn <= 0)
         return;
 
-    jassert (inputBuffer.getNumSamples() <= m_nChannels);
+    jassert (inputBuffer.getNumChannels() <= m_nChannels);
 
     // If the incoming block is larger than the buffer, only keep the last bufferSize samples.
     const int writeCount = std::min (numSamplesIn, m_bufferSize);
@@ -68,6 +68,7 @@ void MultiChannelRingBuffer::addData (const AudioBuffer<float>& inputBuffer,
     m_nValidSamplesInBuffer = newValid;
 
     // Track the latest absolute sample number according to the input timeline
+    // TODO: There is a bug somewhere around this
     m_nextSampleNumber.store (firstSampleNumber + numSamplesIn);
 }
 
@@ -149,6 +150,7 @@ std::pair<RingBufferReadResult, std::optional<int>>
     if (requestedStartSample < oldestSample)
         return { RingBufferReadResult::DataInRingBufferTooOld, std::nullopt };
 
+    // TODO: There is a bug here somewher
     if (requestedEndSampleExclusive > nextSampleNumber)
         return { RingBufferReadResult::NotEnoughNewData, std::nullopt };
 

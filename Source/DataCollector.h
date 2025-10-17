@@ -38,7 +38,7 @@ private:
     AudioBuffer<float> m_collectBuffer;
     std::unordered_map<TriggerSource*, AverageBuffer> m_averageBuffer;
 
-    void processCaptureRequest (const CaptureRequest& event);
+    RingBufferReadResult processCaptureRequest (const CaptureRequest& event);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DataCollector)
 };

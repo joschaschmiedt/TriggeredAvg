@@ -24,36 +24,48 @@ void DataCollector::registerCaptureRequest (const CaptureRequest& request)
     newTriggerEvent.signal();
 }
 
-
 void DataCollector::run()
 {
+    constexpr double retryIntervalMs = 50.0;
     while (! threadShouldExit())
     {
-        bool result = newTriggerEvent.wait (100);
-
-        const ScopedLock lock (triggerQueueLock);
-        while (! captureRequestQueue.empty())
+        if (bool wasTriggered = newTriggerEvent.wait (100))
         {
-            processCaptureRequest (captureRequestQueue.front());
-            captureRequestQueue.pop_front();
+            const ScopedLock lock (triggerQueueLock);
+            while (! captureRequestQueue.empty())
+            {
+                switch (processCaptureRequest (captureRequestQueue.front()))
+                {
+                    case RingBufferReadResult::Success:
+                    case RingBufferReadResult::DataInRingBufferTooOld:
+                    case RingBufferReadResult::InvalidParameters:
+                        captureRequestQueue.pop_front();
+                        break;
+                    case RingBufferReadResult::NotEnoughNewData:
+                        // wait and try again later
+                        wait (retryIntervalMs);
+                        break;
+                    case RingBufferReadResult::UnknownError:
+                        assert (false);
+                        break;
+                }
+            }
         }
     }
 }
 
-void DataCollector::processCaptureRequest (const CaptureRequest& request)
+RingBufferReadResult DataCollector::processCaptureRequest (const CaptureRequest& request)
 {
     if (! viewer)
-        return;
+        return RingBufferReadResult::UnknownError;
 
-    auto result = ringBuffer->readAroundSample (request.triggerSample,
-                                                request.preSamples,
-                                                request.postSamples,
-                                                m_collectBuffer);
-    // TODO: try again if result is not enough data yet
+    auto result = ringBuffer->readAroundSample (
+        request.triggerSample, request.preSamples, request.postSamples, m_collectBuffer);
     if (result == RingBufferReadResult::Success)
     {
         m_averageBuffer.at (request.triggerSource).addBuffer (m_collectBuffer);
     }
+    return result;
 }
 AverageBuffer::AverageBuffer (int numChannels, int numSamples)
     : m_numChannels (numChannels),
