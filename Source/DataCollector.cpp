@@ -7,7 +7,7 @@
 using namespace TriggeredAverage;
 
 DataCollector::DataCollector (TriggeredAvgNode* viewer_, MultiChannelRingBuffer* buffer_)
-    : Thread ("Trigger Detector"),
+    : Thread ("TriggeredAvg: Data Collector"),
       viewer (viewer_),
       ringBuffer (buffer_),
       newTriggerEvent (false)
@@ -20,17 +20,10 @@ DataCollector::~DataCollector() { stopThread (1000); }
 void DataCollector::registerCaptureRequest (const CaptureRequest& request)
 {
     const ScopedLock lock (triggerQueueLock);
-    ttlTriggerQueue.emplace_back (request);
+    captureRequestQueue.emplace_back (request);
     newTriggerEvent.signal();
 }
 
-void DataCollector::registerMessageTrigger (const String& message, int64 sampleNumber)
-{
-    const ScopedLock lock (triggerQueueLock);
-
-    //ttlTriggerQueue.emplace_back (message, sampleNumber);
-    newTriggerEvent.signal();
-}
 
 void DataCollector::run()
 {
@@ -39,10 +32,10 @@ void DataCollector::run()
         bool result = newTriggerEvent.wait (100);
 
         const ScopedLock lock (triggerQueueLock);
-        while (! ttlTriggerQueue.empty())
+        while (! captureRequestQueue.empty())
         {
-            processCaptureRequest (ttlTriggerQueue.front());
-            ttlTriggerQueue.pop_front();
+            processCaptureRequest (captureRequestQueue.front());
+            captureRequestQueue.pop_front();
         }
     }
 }
@@ -52,45 +45,132 @@ void DataCollector::processCaptureRequest (const CaptureRequest& request)
     if (! viewer)
         return;
 
-    // TODO: read data and add to average buffer
-    for (auto source : viewer->getTriggerSources())
+    auto result = ringBuffer->readAroundSample (request.triggerSample,
+                                                request.preSamples,
+                                                request.postSamples,
+                                                m_collectBuffer);
+    // TODO: try again if result is not enough data yet
+    if (result == RingBufferReadResult::Success)
     {
-        //bool shouldTrigger = false;
-
-        //switch (event->getEventType())
-        //{
-        //    case EventChannel::TTL:
-        //    {
-        //        bool lineMatches = (source->line == -1) || (event->getLine() == source->line);
-        //        if (lineMatches && event->getState() && source->canTrigger
-        //            && (source->type == TriggerType::TTL_TRIGGER
-        //                || source->type == TriggerType::TTL_AND_MSG_TRIGGER))
-        //        {
-        //            shouldTrigger = true;
-        //        }
-        //        break;
-        //    }
-        //    case EventChannel::TEXT:
-        //        break;
-        //    case EventChannel::CUSTOM:
-        //        break;
-        //    case EventChannel::INVALID:
-        //        break;
-        //}
-
-        //if (shouldTrigger)
-        //{
-        //    // TODO: Trigger processing via
-        //    //viewer->requestTriggeredCapture (source, event.sampleNumber);
-
-        //    if (source->type == TriggerType::TTL_AND_MSG_TRIGGER)
-        //        source->canTrigger = false;
-
-        AudioBuffer<float> buffer;
-        auto result = ringBuffer->readAroundSample (request.triggerSample,
-                                                    request.preSamples,
-                                                    request.postSamples,
-                                                    request.channelIndices,
-                                                    buffer);
+        m_averageBuffer.at (request.triggerSource).addBuffer (m_collectBuffer);
     }
+}
+AverageBuffer::AverageBuffer (int numChannels, int numSamples)
+    : m_numChannels (numChannels),
+      m_numSamples (numSamples)
+{
+    m_sumBuffer.setSize (numChannels, numSamples);
+    m_sumSquaresBuffer.setSize (numChannels, numSamples);
+    reset();
+}
+AverageBuffer::AverageBuffer (AverageBuffer&& other) noexcept
+    : m_numChannels (other.m_numChannels),
+      m_numSamples (other.m_numSamples)
+{
+    m_sumBuffer = std::move (other.m_sumBuffer);
+    m_sumSquaresBuffer = std::move (other.m_sumSquaresBuffer);
+    m_numTrials = other.m_numTrials;
+}
+AverageBuffer& AverageBuffer::operator= (AverageBuffer&& other) noexcept
+{
+    if (this != &other)
+    {
+        m_sumBuffer = std::move (other.m_sumBuffer);
+        m_sumSquaresBuffer = std::move (other.m_sumSquaresBuffer);
+        m_numTrials = other.m_numTrials;
+        m_numChannels = other.m_numChannels;
+        m_numSamples = other.m_numSamples;
+    }
+    return *this;
+}
+void AverageBuffer::addBuffer (const juce::AudioBuffer<float>& buffer)
+{
+    jassert (buffer.getNumChannels() == m_numChannels);
+    jassert (buffer.getNumSamples() == m_numSamples);
+
+    for (int ch = 0; ch < m_numChannels; ++ch)
+    {
+        auto* sumData = m_sumBuffer.getWritePointer (ch);
+        auto* sumSquaresData = m_sumSquaresBuffer.getWritePointer (ch);
+        auto* inputData = buffer.getReadPointer (ch);
+
+        for (int i = 0; i < m_numSamples; ++i)
+        {
+            float sample = inputData[i];
+            sumData[i] += sample;
+            sumSquaresData[i] += sample * sample;
+        }
+    }
+
+    ++m_numTrials;
+}
+AudioBuffer<float> AverageBuffer::getAverage() const
+{
+    AudioBuffer<float> outputBuffer;
+    ;
+    if (m_numTrials == 0)
+    {
+        outputBuffer.clear();
+        return outputBuffer;
+    }
+
+    outputBuffer.setSize (m_numChannels, m_numSamples, false, false, true);
+
+    for (int ch = 0; ch < m_numChannels; ++ch)
+    {
+        auto* sumData = m_sumBuffer.getReadPointer (ch);
+        auto* outputData = outputBuffer.getWritePointer (ch);
+
+        for (int i = 0; i < m_numSamples; ++i)
+        {
+            outputData[i] = sumData[i] / static_cast<float> (m_numTrials);
+        }
+    }
+    return outputBuffer;
+}
+AudioBuffer<float> AverageBuffer::getStandardDeviation() const
+{
+    juce::AudioBuffer<float> outputBuffer;
+    if (m_numTrials == 0)
+    {
+        outputBuffer.clear();
+        return outputBuffer;
+    }
+
+    outputBuffer.setSize (m_numChannels, m_numSamples, false, false, true);
+
+    for (int ch = 0; ch < m_numChannels; ++ch)
+    {
+        auto* sumData = m_sumBuffer.getReadPointer (ch);
+        auto* sumSquaresData = m_sumSquaresBuffer.getReadPointer (ch);
+        auto* outputData = outputBuffer.getWritePointer (ch);
+
+        for (int i = 0; i < m_numSamples; ++i)
+        {
+            const float mean = sumData[i] / static_cast<float> (m_numTrials);
+            const float meanSquares = sumSquaresData[i] / static_cast<float> (m_numTrials);
+            const float variance = meanSquares - (mean * mean);
+            outputData[i] = std::sqrt (
+                std::max (0.0f, variance)); // Clamp to avoid negative due to float precision
+        }
+    }
+    return outputBuffer;
+}
+
+void AverageBuffer::reset()
+{
+    m_sumBuffer.clear();
+    m_sumSquaresBuffer.clear();
+    m_numTrials = 0;
+}
+int AverageBuffer::getNumTrials() const { return m_numTrials; }
+int AverageBuffer::getNumChannels() const
+{
+    assert (m_sumBuffer.getNumChannels() == m_sumSquaresBuffer.getNumChannels());
+    return m_sumBuffer.getNumChannels();
+}
+int AverageBuffer::getNumSamples() const
+{
+    assert (m_sumBuffer.getNumChannels() == m_sumSquaresBuffer.getNumChannels());
+    return m_sumBuffer.getNumSamples();
 }
