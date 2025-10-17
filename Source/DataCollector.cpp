@@ -54,11 +54,6 @@ void DataCollector::run()
     }
 }
 
-void DataCollector::registerTriggerSource (const TriggerSource*)
-{
-
-}
-
 RingBufferReadResult DataCollector::processCaptureRequest (const CaptureRequest& request)
 {
     if (! viewer)
