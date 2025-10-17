@@ -2,6 +2,8 @@
 
 #include <juce_audio_basics/juce_audio_basics.h> // for AudioBuffer
 
+#include <algorithm>
+
 using namespace TriggeredAverage;
 using namespace juce;
 
@@ -15,59 +17,56 @@ MultiChannelRingBuffer::MultiChannelRingBuffer (int numChannels_, int bufferSize
 }
 
 void MultiChannelRingBuffer::addData (const AudioBuffer<float>& inputBuffer,
-                                      SampleNumber firstSampleNumber)
+                                      SampleNumber firstSampleNumber, uint32 numberOfSamplesInBLock)
 {
     const std::scoped_lock lock (writeLock);
 
-    const int numSamplesIn = inputBuffer.getNumSamples();
+    const int numSamplesIn = static_cast<int> (numberOfSamplesInBLock);
     if (numSamplesIn <= 0)
         return;
 
-    jassert (inputBuffer.getNumSamples() <= m_nChannels);
+    jassert (inputBuffer.getNumChannels() <= m_nChannels);
 
-    // If the incoming block is larger than the buffer, only keep the last bufferSize samples.
-    const int writeCount = std::min (numSamplesIn, m_bufferSize);
-    const int srcOffset = numSamplesIn - writeCount;
-
+    if (firstSampleNumber < m_nextSampleNumber.load() - 1)
+    {
+        // Reset detected - clear buffer
+        reset();
+    }
+    
     // first segment (until end of ring)
     const int spaceToEnd = m_bufferSize - m_writeIndex.load();
-    const int blockSize1 = std::min (writeCount, spaceToEnd);
+    const int blockSize1 = std::min (numSamplesIn, spaceToEnd);
 
     if (blockSize1 > 0)
     {
         for (int ch = 0; ch < std::min (m_nChannels, inputBuffer.getNumChannels()); ++ch)
         {
-            m_buffer.copyFrom (ch, m_writeIndex.load(), inputBuffer, ch, srcOffset, blockSize1);
+            m_buffer.copyFrom (ch, m_writeIndex.load(), inputBuffer, ch, 0, blockSize1);
         }
 
         for (int i = 0; i < blockSize1; ++i)
         {
-            m_sampleNumbers.getReference (m_writeIndex + i) = firstSampleNumber + srcOffset + i;
+            m_sampleNumbers.at (m_writeIndex + i) = firstSampleNumber + i;
         }
     }
 
     // second segment (from start of ring)
-    if (const int blockSize2 = writeCount - blockSize1; blockSize2 > 0)
+    if (const int blockSize2 = numSamplesIn - blockSize1; blockSize2 > 0)
     {
         for (int ch = 0; ch < std::min (m_nChannels, inputBuffer.getNumChannels()); ++ch)
         {
-            m_buffer.copyFrom (ch, 0, inputBuffer, ch, srcOffset + blockSize1, blockSize2);
+            m_buffer.copyFrom (ch, 0, inputBuffer, ch, blockSize1, blockSize2);
         }
 
         for (int i = 0; i < blockSize2; ++i)
         {
-            m_sampleNumbers.getReference (i) = firstSampleNumber + srcOffset + blockSize1 + i;
+            m_sampleNumbers.at (i) = firstSampleNumber + blockSize1 + i;
         }
     }
 
-    // Advance write index and valid size (overwrite semantics)
-    m_writeIndex = (m_writeIndex + writeCount) % m_bufferSize;
-    int newValid = m_nValidSamplesInBuffer + writeCount;
-    if (newValid > m_bufferSize)
-        newValid = m_bufferSize;
-    m_nValidSamplesInBuffer = newValid;
-
-    // Track the latest absolute sample number according to the input timeline
+    m_writeIndex.store ((m_writeIndex.load() + numSamplesIn) % m_bufferSize);
+    m_nValidSamplesInBuffer.store (
+        std::min (m_nValidSamplesInBuffer.load() + numSamplesIn, m_bufferSize));
     m_nextSampleNumber.store (firstSampleNumber + numSamplesIn);
 }
 
@@ -143,12 +142,15 @@ std::pair<RingBufferReadResult, std::optional<int>>
 
     const SampleNumber nextSampleNumber = m_nextSampleNumber.load();
     const int nValidSamplesInBuffer = m_nValidSamplesInBuffer.load();
+
+    // TODO: this is nonesense. Fix it.
     const SampleNumber oldestSample = nextSampleNumber - nValidSamplesInBuffer;
 
     // window must be inside [oldest, current)
     if (requestedStartSample < oldestSample)
         return { RingBufferReadResult::DataInRingBufferTooOld, std::nullopt };
 
+    // TODO: There is a bug here somewher
     if (requestedEndSampleExclusive > nextSampleNumber)
         return { RingBufferReadResult::NotEnoughNewData, std::nullopt };
 

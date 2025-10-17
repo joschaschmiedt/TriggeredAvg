@@ -25,6 +25,7 @@ public:
     DataCollector (TriggeredAvgNode* viewer, MultiChannelRingBuffer* buffer);
     ~DataCollector() override;
     void run() override;
+    void registerTriggerSource (const TriggerSource*);
     void registerCaptureRequest (const CaptureRequest&);
 
 private:
@@ -38,7 +39,7 @@ private:
     AudioBuffer<float> m_collectBuffer;
     std::unordered_map<TriggerSource*, AverageBuffer> m_averageBuffer;
 
-    void processCaptureRequest (const CaptureRequest& event);
+    RingBufferReadResult processCaptureRequest (const CaptureRequest& event);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DataCollector)
 };
@@ -46,7 +47,7 @@ private:
 class AverageBuffer
 {
 public:
-    AverageBuffer() = delete;
+    AverageBuffer() = default;
     AverageBuffer (int numChannels, int numSamples);
     AverageBuffer (AverageBuffer&& other) noexcept;
     AverageBuffer& operator= (AverageBuffer&& other) noexcept;

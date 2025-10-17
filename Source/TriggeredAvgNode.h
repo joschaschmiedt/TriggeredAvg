@@ -30,6 +30,7 @@
 namespace TriggeredAverage
 {
 
+using StreamId = std::uint16_t;
 class TriggeredAvgNode;
 class DataCollector;
 class MultiChannelRingBuffer;
@@ -92,7 +93,7 @@ public:
     TriggeredAvgCanvas* canvas;
 
     // TODO: should we use this?
-    int m_dataStreamIndex = 0;
+    StreamId m_dataStreamIndex = 0;
 
 private:
     void handleBroadcastMessage (const String& message, const int64 sysTimeMs) override;

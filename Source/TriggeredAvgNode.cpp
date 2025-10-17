@@ -134,12 +134,25 @@ void TriggeredAvgNode::parameterValueChanged (Parameter* param)
 
 void TriggeredAvgNode::process (AudioBuffer<float>& buffer)
 {
-    SampleNumber firstSampleNumber =
-        getFirstSampleNumberForBlock (getDataStreams()[m_dataStreamIndex]->getStreamId());
+    // For now: first stream only
+    static SampleNumber lastSampleNumber = 0;
+    // TODO: Add handling of multiple streams (ring buffer per stream?)
+    StreamId streamId = getDataStreams()[m_dataStreamIndex]->getStreamId();
+    auto timestamp = getFirstTimestampForBlock (streamId);
+    
+    SampleNumber firstSampleNumber = getFirstSampleNumberForBlock (streamId);
+    auto diff = firstSampleNumber - lastSampleNumber;
+    lastSampleNumber = firstSampleNumber;
+    if(diff < 0)
+    {
+        lastSampleNumber += 0;
+    }
+    //assert (diff >= 0);
     if (! ringBuffer)
         return;
 
-    ringBuffer->addData (buffer, firstSampleNumber);
+    auto nSamplesInBlock = getNumSamplesInBlock (streamId);
+    ringBuffer->addData (buffer, firstSampleNumber, nSamplesInBlock);
     checkForEvents (false);
 }
 
@@ -338,13 +351,16 @@ void TriggeredAvgNode::handleTTLEvent (TTLEventPtr event)
         {
             if (event->getLine() == source->line && event->getState() && source->canTrigger)
             {
-                int preSamples = static_cast<int> (getSampleRate (m_dataStreamIndex)
-                                                   * (getPreWindowSizeMs() / 1000.0f));
-                int postSamples = static_cast<int> (getSampleRate (m_dataStreamIndex)
-                                                    * (getPostWindowSizeMs() / 1000.0f));
+                const float sampleRate = getDataStreams()[m_dataStreamIndex]->getSampleRate();
+                int preSamples = static_cast<int> (sampleRate * (getPreWindowSizeMs() / 1000.0f));
+                int postSamples = static_cast<int> (sampleRate * (getPostWindowSizeMs() / 1000.0f));
 
+                auto triggerSample = event->getSampleNumber();
                 dataCollector->registerCaptureRequest (
-                    CaptureRequest { source, event->getSampleNumber(), preSamples, postSamples });
+                    CaptureRequest { .triggerSource = source,
+                                     .triggerSample = event->getSampleNumber(),
+                                     .preSamples = preSamples,
+                                     .postSamples = postSamples });
 
                 if (source->type == TriggerType::TTL_AND_MSG_TRIGGER)
                     source->canTrigger = false;

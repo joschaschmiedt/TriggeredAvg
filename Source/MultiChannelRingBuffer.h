@@ -10,6 +10,7 @@ using SampleNumber = std::int64_t;
 
 enum class RingBufferReadResult : std::int_fast8_t
 {
+    UnknownError = -1,
     Success = 0,
     NotEnoughNewData = 1,
     DataInRingBufferTooOld = 2,
@@ -23,7 +24,7 @@ public:
     MultiChannelRingBuffer (int numChannels, int bufferSize);
     ~MultiChannelRingBuffer() = default;
 
-    void addData (const juce::AudioBuffer<float>& inputBuffer, SampleNumber firstSampleNumber);
+    void addData (const juce::AudioBuffer<float>& inputBuffer, SampleNumber firstSampleNumber, uint32 numberOfSamplesInBLock);
     RingBufferReadResult readAroundSample (SampleNumber centerSample,
                                            int preSamples,
                                            int postSamples,
@@ -39,7 +40,7 @@ public:
 
 private:
     juce::AudioBuffer<float> m_buffer;
-    juce::Array<SampleNumber> m_sampleNumbers;
+    std::vector<SampleNumber> m_sampleNumbers;
 
     std::atomic<SampleNumber> m_nextSampleNumber = 0;
     std::atomic<int> m_writeIndex = 0;
