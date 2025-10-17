@@ -23,6 +23,8 @@ void MultiChannelRingBuffer::addData (const AudioBuffer<float>& inputBuffer,
     if (numSamplesIn <= 0)
         return;
 
+    jassert (inputBuffer.getNumSamples() <= m_nChannels);
+
     // If the incoming block is larger than the buffer, only keep the last bufferSize samples.
     const int writeCount = std::min (numSamplesIn, m_bufferSize);
     const int srcOffset = numSamplesIn - writeCount;
@@ -71,10 +73,9 @@ void MultiChannelRingBuffer::addData (const AudioBuffer<float>& inputBuffer,
 
 RingBufferReadResult
     MultiChannelRingBuffer::readAroundSample (SampleNumber centerSample,
-                                               int preSamples,
-                                               int postSamples,
-                                               const Array<int>& channelIndices,
-                                               AudioBuffer<float>& outputBuffer) const
+                                              int preSamples,
+                                              int postSamples,
+                                              AudioBuffer<float>& outputBuffer) const
 {
     auto [result, startSample] =
         getStartSampleForTriggeredRead (centerSample, preSamples, postSamples);
@@ -86,25 +87,18 @@ RingBufferReadResult
     auto bufferStartPos = startSample.value();
     const int totalSamples = preSamples + postSamples;
 
-    outputBuffer.setSize (channelIndices.size(), totalSamples);
+    outputBuffer.setSize (m_nChannels, totalSamples);
 
-    for (int outCh = 0; outCh < channelIndices.size(); ++outCh)
+    for (int outCh = 0; outCh < m_nChannels; ++outCh)
     {
-        const int sourceCh = channelIndices[outCh];
-        if (sourceCh < 0 || sourceCh >= m_nChannels)
-        {
-            outputBuffer.clear (outCh, 0, totalSamples);
-            continue;
-        }
-
         // We can copy in up to 2 blocks due to wraparound
         const int firstBlock = std::min (totalSamples, m_bufferSize - bufferStartPos);
         if (firstBlock > 0)
-            outputBuffer.copyFrom (outCh, 0, m_buffer, sourceCh, bufferStartPos, firstBlock);
+            outputBuffer.copyFrom (outCh, 0, m_buffer, outCh, bufferStartPos, firstBlock);
 
         const int secondBlock = totalSamples - firstBlock;
         if (secondBlock > 0)
-            outputBuffer.copyFrom (outCh, firstBlock, m_buffer, sourceCh, 0, secondBlock);
+            outputBuffer.copyFrom (outCh, firstBlock, m_buffer, outCh, 0, secondBlock);
     }
 
     return RingBufferReadResult::Success;
@@ -161,8 +155,10 @@ std::pair<RingBufferReadResult, std::optional<int>>
     // Calculate ring buffer position
     const int writeIndex = m_writeIndex.load();
     const int oldestIndex = (writeIndex - nValidSamplesInBuffer + m_bufferSize) % m_bufferSize;
-    const int startBufferIndex = (oldestIndex + (requestedStartSample - oldestSample))  // NOLINT(bugprone-narrowing-conversions)
-                                 % m_bufferSize; // NOLINT(bugprone-narrowing-conversions)
+    const int startBufferIndex =
+        (oldestIndex
+         + (requestedStartSample - oldestSample)) // NOLINT(bugprone-narrowing-conversions)
+        % m_bufferSize; // NOLINT(bugprone-narrowing-conversions)
 
     return { RingBufferReadResult::Success, startBufferIndex };
 }

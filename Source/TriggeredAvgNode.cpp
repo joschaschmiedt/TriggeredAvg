@@ -343,10 +343,8 @@ void TriggeredAvgNode::handleTTLEvent (TTLEventPtr event)
                 int postSamples = static_cast<int> (getSampleRate (m_dataStreamIndex)
                                                     * (getPostWindowSizeMs() / 1000.0f));
 
-                // TODO:
-                juce::Array<int> channels = {};
-                dataCollector->registerCaptureRequest (CaptureRequest {
-                    source, event->getSampleNumber(), preSamples, postSamples, channels });
+                dataCollector->registerCaptureRequest (
+                    CaptureRequest { source, event->getSampleNumber(), preSamples, postSamples });
 
                 if (source->type == TriggerType::TTL_AND_MSG_TRIGGER)
                     source->canTrigger = false;

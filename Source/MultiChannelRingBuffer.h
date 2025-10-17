@@ -19,21 +19,22 @@ enum class RingBufferReadResult : std::int_fast8_t
 class MultiChannelRingBuffer
 {
 public:
+    MultiChannelRingBuffer() = delete;
     MultiChannelRingBuffer (int numChannels, int bufferSize);
     ~MultiChannelRingBuffer() = default;
-    auto addData (const juce::AudioBuffer<float>& inputBuffer, SampleNumber firstSampleNumber)
-        -> void;
-    auto readAroundSample (SampleNumber triggerSample,
-                            int preSamples,
-                            int postSamples,
-                            const juce::Array<int>& channelIndices,
-                            juce::AudioBuffer<float>& outputBuffer) const -> RingBufferReadResult;
 
-    auto getCurrentSampleNumber() const -> SampleNumber { return m_nextSampleNumber.load(); }
-    auto getBufferSize() const -> int { return m_bufferSize; }
-    auto getStartSampleForTriggeredRead (SampleNumber centerSample, int preSamples, int postSamples) const
-        -> std::pair<RingBufferReadResult, std::optional<int>>;
+    void addData (const juce::AudioBuffer<float>& inputBuffer, SampleNumber firstSampleNumber);
+    RingBufferReadResult readAroundSample (SampleNumber centerSample,
+                                           int preSamples,
+                                           int postSamples,
+                                           juce::AudioBuffer<float>& outputBuffer) const;
 
+    SampleNumber getCurrentSampleNumber() const { return m_nextSampleNumber.load(); }
+    int getBufferSize() const { return m_bufferSize; }
+    std::pair<RingBufferReadResult, std::optional<int>>
+        getStartSampleForTriggeredRead (SampleNumber centerSample,
+                                        int preSamples,
+                                        int postSamples) const;
     void reset();
 
 private:
@@ -45,7 +46,7 @@ private:
     std::atomic<int> m_nValidSamplesInBuffer =
         0; // number of valid samples currently stored (<= bufferSize)
 
-    int m_nChannels;
+    const int m_nChannels;
     int m_bufferSize;
 
     mutable std::recursive_mutex writeLock;
