@@ -1,6 +1,6 @@
 #include "SinglePlotPanel.h"
-#include "TriggeredAvgCanvas.h"
 #include "TriggerSource.h"
+#include "TriggeredAvgCanvas.h"
 
 using namespace TriggeredAverage;
 const static Colour panelBackground { 30, 30, 40 };
@@ -10,7 +10,6 @@ SinglePlotPanel::SinglePlotPanel (GridDisplay* display_,
                                   const TriggerSource* source_)
     : streamId (channel->getStreamId()),
       contChannel (channel),
-      latestEventSampleNumber (0),
       baseColour (source_->colour),
       source (source_),
       display (display_),
@@ -62,11 +61,6 @@ SinglePlotPanel::SinglePlotPanel (GridDisplay* display_,
     trialCounter->setText (trialCounterString, dontSendNotification);
     trialCounter->setColour (Label::textColourId, baseColour);
     addAndMakeVisible (trialCounter.get());
-
-    maxCounts.add (1);
-    uniqueSortedIds.add (0);
-    counts.add (Array<int>());
-    maxSortedId = 0;
 
     clear();
 }
@@ -124,40 +118,7 @@ void SinglePlotPanel::resized()
     }
 }
 
-void SinglePlotPanel::clear()
-{
-    maxCounts.fill (1);
-
-    numTrials = 0;
-}
-
-void SinglePlotPanel::addSpike (int64 sample_number, int sortedId)
-{
-    //const ScopedLock lock(mutex);
-
-    //newSpikeSampleNumbers.add (sample_number);
-    //newSpikeSortedIds.add (sortedId);
-
-    //int sortedIdIndex = uniqueSortedIds.indexOf (sortedId);
-
-    //if (sortedIdIndex < 0)
-    //{
-    //    sortedIdIndex = uniqueSortedIds.size();
-    //    uniqueSortedIds.add (sortedId);
-    //    if (sortedId > 0)
-    //        unitSelector->addItem ("Unit " + String (sortedId), sortedId + 1);
-
-    //    maxCounts.add (1);
-    //    counts.add (Array<int>());
-    //    maxSortedId = jmax (sortedId, maxSortedId);
-    //}
-}
-
-void SinglePlotPanel::addEvent (int64 sample_number)
-{
-    numTrials++;
-    latestEventSampleNumber = sample_number;
-}
+void SinglePlotPanel::clear() { numTrials = 0; }
 
 void SinglePlotPanel::setWindowSizeMs (float pre, float post)
 {
@@ -212,15 +173,11 @@ void SinglePlotPanel::drawBackground (bool shouldDraw)
 void SinglePlotPanel::setOverlayMode (bool shouldOverlay)
 {
     overlayMode = shouldOverlay;
-
-    maxCounts.fill (1);
-
 }
 
 void SinglePlotPanel::setOverlayIndex (int index)
 {
     overlayIndex = index;
-
     resized();
 }
 
@@ -228,7 +185,6 @@ void SinglePlotPanel::update() { numTrials++; }
 
 void SinglePlotPanel::paint (Graphics& g)
 {
-
     if (shouldDrawBackground)
         g.fillAll (panelBackground);
 
@@ -246,7 +202,7 @@ void SinglePlotPanel::paint (Graphics& g)
 
     float zeroLoc = (pre_ms) / (pre_ms + post_ms) * static_cast<float> (panelWidthPx);
 
-    auto trialCounterString =  String (numTrials);
+    auto trialCounterString = String (numTrials);
     trialCounter->setText (trialCounterString, dontSendNotification);
     g.setColour (Colours::white);
     g.drawLine (zeroLoc, 0, zeroLoc, static_cast<float> (getHeight()), 2.0);
@@ -278,17 +234,6 @@ void SinglePlotPanel::comboBoxChanged (ComboBox* comboBox)
     }
     else
     {
-        repaint();
-    }
-}
-
-void SinglePlotPanel::setMaxCount (int unitId, int count)
-{
-    const int sortedIdIndex = uniqueSortedIds.indexOf (unitId);
-
-    if (maxCounts[sortedIdIndex] < count)
-    {
-        maxCounts.set (sortedIdIndex, count);
         repaint();
     }
 }

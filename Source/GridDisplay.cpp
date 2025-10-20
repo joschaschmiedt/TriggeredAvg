@@ -1,7 +1,7 @@
 #include "GridDisplay.h"
 #include "SinglePlotPanel.h"
-#include "TriggeredAvgNode.h"
 #include "TriggerSource.h"
+#include "TriggeredAvgNode.h"
 
 TriggeredAverage::GridDisplay::GridDisplay() = default;
 
@@ -160,7 +160,9 @@ void TriggeredAverage::GridDisplay::pushEvent (const TriggerSource* source,
     for (auto hist : triggerSourceToPanelMap[source])
     {
         if (hist->streamId == streamId)
-            hist->addEvent (sample_number);
+        {
+            //hist->addEvent (sample_number);
+        }
     }
 }
 

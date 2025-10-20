@@ -40,8 +40,8 @@ public:
 private:
     OwnedArray<SinglePlotPanel> panels;
 
-    std::map<const TriggerSource*, Array<SinglePlotPanel*>> triggerSourceToPanelMap;
-    std::map<const ContinuousChannel*, Array<SinglePlotPanel*>> contChannelToPanelMap;
+    std::unordered_map<const TriggerSource*, Array<SinglePlotPanel*>> triggerSourceToPanelMap;
+    std::unordered_map<const ContinuousChannel*, Array<SinglePlotPanel*>> contChannelToPanelMap;
 
     int totalHeight = 0;
     int panelHeightPx = 150;
