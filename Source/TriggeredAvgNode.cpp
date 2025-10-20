@@ -142,12 +142,11 @@ void TriggeredAvgNode::process (AudioBuffer<float>& buffer)
     
     SampleNumber firstSampleNumber = getFirstSampleNumberForBlock (streamId);
     auto diff = firstSampleNumber - lastSampleNumber;
-    lastSampleNumber = firstSampleNumber;
     if(diff < 0)
     {
         lastSampleNumber += 0;
     }
-    //assert (diff >= 0);
+    lastSampleNumber = firstSampleNumber;
     if (! ringBuffer)
         return;
 

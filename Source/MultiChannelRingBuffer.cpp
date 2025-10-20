@@ -27,12 +27,6 @@ void MultiChannelRingBuffer::addData (const AudioBuffer<float>& inputBuffer,
 
     jassert (inputBuffer.getNumChannels() <= m_nChannels);
 
-    if (firstSampleNumber < m_nextSampleNumber.load() - 1)
-    {
-        // Reset detected - clear buffer
-        reset();
-    }
-    
     // first segment (until end of ring)
     const int spaceToEnd = m_bufferSize - m_writeIndex.load();
     const int blockSize1 = std::min (numSamplesIn, spaceToEnd);
