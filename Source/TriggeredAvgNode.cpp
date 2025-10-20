@@ -33,11 +33,11 @@ using namespace TriggeredAverage;
 
 TriggeredAvgNode::TriggeredAvgNode()
     : GenericProcessor ("Triggered Avg"),
-      canvas (nullptr),
+      m_canvas (nullptr),
       // TODO: check if 10 seconds buffer is sufficient (lock-free?) and how to handle more than one stream
-      ringBufferSize (
+      m_ringBufferSize (
           static_cast<int> (GenericProcessor::getSampleRate (m_dataStreamIndex) * 10.0f)),
-      threadsInitialized (false) // 10 seconds buffer
+      m_threadsInitialized (false) // 10 seconds buffer
 {
     addFloatParameter (Parameter::PROCESSOR_SCOPE,
                        ParameterNames::pre_ms,
@@ -105,21 +105,21 @@ void TriggeredAvgNode::parameterValueChanged (Parameter* param)
     }
     else if (param->getName().equalsIgnoreCase (trigger_line))
     {
-        if (currentTriggerSource != nullptr)
+        if (m_currentTriggerSource != nullptr)
         {
-            currentTriggerSource->line = (int) param->getValue();
+            m_currentTriggerSource->line = (int) param->getValue();
         }
     }
     else if (param->getName().equalsIgnoreCase (trigger_type))
     {
-        if (currentTriggerSource != nullptr)
+        if (m_currentTriggerSource != nullptr)
         {
-            currentTriggerSource->type = (TriggerType) (int) param->getValue();
+            m_currentTriggerSource->type = (TriggerType) (int) param->getValue();
 
-            if (currentTriggerSource->type == TriggerType::TTL_TRIGGER)
-                currentTriggerSource->canTrigger = true;
+            if (m_currentTriggerSource->type == TriggerType::TTL_TRIGGER)
+                m_currentTriggerSource->canTrigger = true;
             else
-                currentTriggerSource->canTrigger = false;
+                m_currentTriggerSource->canTrigger = false;
         }
     }
     else if (param->getName().equalsIgnoreCase (ParameterNames::pre_ms))
@@ -147,11 +147,11 @@ void TriggeredAvgNode::process (AudioBuffer<float>& buffer)
         lastSampleNumber += 0;
     }
     lastSampleNumber = firstSampleNumber;
-    if (! ringBuffer)
+    if (! m_ringBuffer)
         return;
 
     auto nSamplesInBlock = getNumSamplesInBlock (streamId);
-    ringBuffer->addData (buffer, firstSampleNumber, nSamplesInBlock);
+    m_ringBuffer->addData (buffer, firstSampleNumber, nSamplesInBlock);
     checkForEvents (false);
 }
 
@@ -174,24 +174,24 @@ float TriggeredAvgNode::getPostWindowSizeMs() const
 Array<TriggerSource*> TriggeredAvgNode::getTriggerSources()
 {
     Array<TriggerSource*> sources;
-    for (auto source : triggerSources)
+    for (auto source : m_triggerSources)
         sources.add (source);
     return sources;
 }
 
 TriggerSource* TriggeredAvgNode::addTriggerSource (int line, TriggerType type, int index)
 {
-    String name = "Condition " + String (nextConditionIndex++);
+    String name = "Condition " + String (m_nextConditionIndex++);
     name = ensureUniqueTriggerSourceName (name);
 
     TriggerSource* source = new TriggerSource (this, name, line, type);
 
     if (index == -1)
-        triggerSources.add (source);
+        m_triggerSources.add (source);
     else
-        triggerSources.insert (index, source);
+        m_triggerSources.insert (index, source);
 
-    currentTriggerSource = source;
+    m_currentTriggerSource = source;
     getParameter ("trigger_type")->setNextValue ((int) type, false);
 
     return source;
@@ -201,23 +201,23 @@ void TriggeredAvgNode::removeTriggerSources (Array<TriggerSource*> sources)
 {
     for (auto source : sources)
     {
-        triggerSources.removeObject (source);
+        m_triggerSources.removeObject (source);
     }
 }
 
 void TriggeredAvgNode::removeTriggerSource (int indexToRemove)
 {
-    if (indexToRemove >= 0 && indexToRemove < triggerSources.size())
+    if (indexToRemove >= 0 && indexToRemove < m_triggerSources.size())
     {
-        TriggerSource* source = triggerSources[indexToRemove];
-        triggerSources.remove (indexToRemove);
+        TriggerSource* source = m_triggerSources[indexToRemove];
+        m_triggerSources.remove (indexToRemove);
     }
 }
 
 String TriggeredAvgNode::ensureUniqueTriggerSourceName (String name)
 {
     Array<String> existingNames;
-    for (auto source : triggerSources)
+    for (auto source : m_triggerSources)
         existingNames.add (source->name);
 
     if (! existingNames.contains (name))
@@ -262,7 +262,7 @@ void TriggeredAvgNode::setTriggerSourceTriggerType (TriggerSource* source,
 
 void TriggeredAvgNode::saveCustomParametersToXml (XmlElement* xml)
 {
-    for (auto source : triggerSources)
+    for (auto source : m_triggerSources)
     {
         XmlElement* sourceXml = xml->createNewChildElement ("TRIGGERSOURCE");
         sourceXml->setAttribute ("name", source->name);
@@ -274,8 +274,8 @@ void TriggeredAvgNode::saveCustomParametersToXml (XmlElement* xml)
 
 void TriggeredAvgNode::loadCustomParametersFromXml (XmlElement* xml)
 {
-    triggerSources.clear();
-    nextConditionIndex = 1;
+    m_triggerSources.clear();
+    m_nextConditionIndex = 1;
 
     for (auto sourceXml : xml->getChildIterator())
     {
@@ -301,9 +301,9 @@ void TriggeredAvgNode::loadCustomParametersFromXml (XmlElement* xml)
 
 void TriggeredAvgNode::handleBroadcastMessage (const String& message, const int64 sysTimeMs)
 {
-    if (dataCollector && threadsInitialized.load())
+    if (m_dataCollector && m_threadsInitialized.load())
     {
-        for (auto source : triggerSources)
+        for (auto source : m_triggerSources)
         {
             if (message.equalsIgnoreCase (source->name))
             {
@@ -344,9 +344,9 @@ bool TriggeredAvgNode::getIntField (DynamicObject::Ptr payload,
 
 void TriggeredAvgNode::handleTTLEvent (TTLEventPtr event)
 {
-    if (dataCollector && threadsInitialized.load())
+    if (m_dataCollector && m_threadsInitialized.load())
     {
-        for (auto source : triggerSources)
+        for (auto source : m_triggerSources)
         {
             if (event->getLine() == source->line && event->getState() && source->canTrigger)
             {
@@ -355,7 +355,7 @@ void TriggeredAvgNode::handleTTLEvent (TTLEventPtr event)
                 int postSamples = static_cast<int> (sampleRate * (getPostWindowSizeMs() / 1000.0f));
 
                 auto triggerSample = event->getSampleNumber();
-                dataCollector->registerCaptureRequest (
+                m_dataCollector->registerCaptureRequest (
                     CaptureRequest { .triggerSource = source,
                                      .triggerSample = event->getSampleNumber(),
                                      .preSamples = preSamples,
@@ -368,46 +368,32 @@ void TriggeredAvgNode::handleTTLEvent (TTLEventPtr event)
     }
 }
 
-void TriggeredAvgNode::timerCallback()
+void TriggeredAvgNode::handleAsyncUpdate ()
 {
-    // TODO: Whats the purpose of this timer?
-    //if (! threadsInitialized.load())
-    //return;
-
-    //TriggerSource* source;
-    //AudioBuffer<float> data;
-    //int64 triggerSample;
+    // TODO: handle redrawring on message thread (here)
 }
+
 
 void TriggeredAvgNode::initializeThreads()
 {
-    if (threadsInitialized.load())
+    if (m_threadsInitialized.load())
         shutdownThreads();
 
-    if (getNumInputs() > 0 && ringBufferSize > 0)
+    if (getNumInputs() > 0 && m_ringBufferSize > 0)
     {
-        ringBuffer = std::make_unique<MultiChannelRingBuffer> (getNumInputs(), ringBufferSize);
-        dataCollector = std::make_unique<DataCollector> (this, ringBuffer.get());
-
-        dataCollector->startThread (Thread::Priority::high);
-
-        threadsInitialized.store (true);
-
-        // Start timer to poll for completed captures every 50ms
-        startTimer (50);
+        m_ringBuffer = std::make_unique<MultiChannelRingBuffer> (getNumInputs(), m_ringBufferSize);
+        m_dataCollector = std::make_unique<DataCollector> (this, m_ringBuffer.get());
+        m_dataCollector->startThread (Thread::Priority::high);
+        m_threadsInitialized.store (true);
     }
 }
 
 void TriggeredAvgNode::shutdownThreads()
 {
-    if (threadsInitialized.load())
+    if (m_threadsInitialized.load())
     {
-        // Stop the timer first to prevent callbacks with invalid objects
-        stopTimer();
-
-        dataCollector.reset();
-        ringBuffer.reset();
-
-        threadsInitialized.store (false);
+        m_dataCollector.reset();
+        m_ringBuffer.reset();
+        m_threadsInitialized.store (false);
     }
 }

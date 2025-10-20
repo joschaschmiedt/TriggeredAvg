@@ -38,7 +38,7 @@ Visualizer* TriggeredAvgEditor::createNewCanvas()
     assert (p);
 
     canvas = new TriggeredAvgCanvas (p);
-    p->canvas = canvas;
+    p->setCanvas (canvas);
 
     updateSettings();
 

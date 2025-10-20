@@ -29,7 +29,7 @@ public:
     void registerCaptureRequest (const CaptureRequest&);
 
 private:
-    TriggeredAvgNode* viewer;
+    TriggeredAvgNode* m_processor;
     MultiChannelRingBuffer* ringBuffer;
 
     CriticalSection triggerQueueLock;

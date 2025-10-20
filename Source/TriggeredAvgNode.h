@@ -48,7 +48,7 @@ namespace ParameterNames
 
 } // namespace ParameterNames
 
-class TriggeredAvgNode : public GenericProcessor, public ::Timer
+class TriggeredAvgNode : public GenericProcessor, public juce::AsyncUpdater
 {
 public:
     TriggeredAvgNode();
@@ -82,15 +82,16 @@ public:
                                       TriggerType type,
                                       bool updateEditor = true);
 
+    void setCanvas (TriggeredAvgCanvas* canvas) { m_canvas = canvas; }
+
     String ensureUniqueTriggerSourceName (String name);
-    int getNextConditionIndex() const { return nextConditionIndex; }
+    int getNextConditionIndex() const { return m_nextConditionIndex; }
 
     /** Saves trigger source parameters */
     void saveCustomParametersToXml (XmlElement* xml) override;
 
     /** Saves trigger source parameters */
     void loadCustomParametersFromXml (XmlElement* xml) override;
-    TriggeredAvgCanvas* canvas;
 
     // TODO: should we use this?
     StreamId m_dataStreamIndex = 0;
@@ -107,22 +108,23 @@ private:
                       int upperBound);
 
     void handleTTLEvent (TTLEventPtr event) override;
-    /** Updates UI with completed captures */
-    void timerCallback() override;
+    void handleAsyncUpdate() override;
+    ;
 
     void initializeThreads();
     void shutdownThreads();
 
-    std::unique_ptr<MultiChannelRingBuffer> ringBuffer;
-    std::unique_ptr<DataCollector> dataCollector;
+    std::unique_ptr<MultiChannelRingBuffer> m_ringBuffer;
+    std::unique_ptr<DataCollector> m_dataCollector;
+    TriggeredAvgCanvas* m_canvas;
 
-    OwnedArray<TriggerSource> triggerSources;
-    int nextConditionIndex = 1;
-    TriggerSource* currentTriggerSource = nullptr;
+    OwnedArray<TriggerSource> m_triggerSources;
+    int m_nextConditionIndex = 1;
+    TriggerSource* m_currentTriggerSource = nullptr;
 
     // Buffer parameters
-    int ringBufferSize;
-    std::atomic<bool> threadsInitialized;
+    int m_ringBufferSize;
+    std::atomic<bool> m_threadsInitialized;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TriggeredAvgNode)
 };
