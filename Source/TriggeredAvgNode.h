@@ -23,7 +23,6 @@
 */
 #pragma once
 
-
 #include <ProcessorHeaders.h>
 #include <atomic>
 #include <memory>
@@ -64,6 +63,26 @@ public:
 
     // parameters
     float getPreWindowSizeMs() const;
+    int getNumberOfPreSamples() const
+    {
+        const float sampleRate = getDataStreams()[m_dataStreamIndex]->getSampleRate();
+        const int preSamples = static_cast<int> (sampleRate * (getPreWindowSizeMs() / 1000.0f));
+        return preSamples;
+    }
+    int getNumberOfPostSamplesIncludingTrigger() const
+    {
+        const float sampleRate = getDataStreams()[m_dataStreamIndex]->getSampleRate();
+        const int postSamples = static_cast<int> (sampleRate * (getPostWindowSizeMs() / 1000.0f));
+        return postSamples;
+    }
+    int getNumberOfSamples() const
+    {
+        const float sampleRate = getDataStreams()[m_dataStreamIndex]->getSampleRate();
+        const int preSamples = static_cast<int> (sampleRate * (getPreWindowSizeMs() / 1000.0f));
+        const int postSamples = static_cast<int> (sampleRate * (getPostWindowSizeMs() / 1000.0f));
+        const int totalSamples = preSamples + postSamples;
+        return totalSamples;
+    }
     float getPostWindowSizeMs() const;
     int getMaxTrials() const { return (int) getParameter (ParameterNames::max_trials)->getValue(); }
 
@@ -83,6 +102,8 @@ public:
     void setTriggerSourceTriggerType (TriggerSource* source,
                                       TriggerType type,
                                       bool updateEditor = true);
+
+    DataStore* getDataStore() { return m_dataStore.get(); }
 
     void setCanvas (TriggeredAvgCanvas* canvas) { m_canvas = canvas; }
 

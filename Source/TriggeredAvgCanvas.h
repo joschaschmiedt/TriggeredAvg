@@ -10,6 +10,7 @@ namespace TriggeredAverage
 class TriggerSource;
 class TriggeredAvgCanvas;
 class GridDisplay;
+class DataStore;
 
 enum class DisplayMode : std::uint8_t
 {
@@ -99,14 +100,12 @@ public:
     /** Sets the overall window size*/
     void setWindowSizeMs (float pre_ms, float post_ms);
 
-    /** Add an event to the queue */
     void pushEvent (const TriggerSource* source, uint16 streamId, int64 sample_number);
 
-    /** Add a spike to the queue */
-    //void pushSpike (const SpikeChannel* channel, int64 sample_number, int sortedId);
-
-    /** Adds a spike channel */
-    void addContChannel (const ContinuousChannel* channel, const TriggerSource* source);
+    void addContChannel (const ContinuousChannel*,
+                         const TriggerSource*,
+                         int channelIndexInAverageBuffer,
+                         const MultiChannelAverageBuffer*);
 
     /** Changes source colour */
     void updateColourForSource (const TriggerSource* source);
@@ -124,14 +123,17 @@ public:
     void loadCustomParametersFromXml (XmlElement* xml) override;
 
 private:
+    // dependencies
+    DataStore* m_dataStore;
+
+    // data
     float pre_ms;
     float post_ms;
 
+    // UI components
     std::unique_ptr<Viewport> m_mainViewport;
-
     std::unique_ptr<TimeAxis> m_timeAxis;
     std::unique_ptr<GridDisplay> m_grid;
-
     std::unique_ptr<Viewport> m_optionsBarHolder;
     std::unique_ptr<OptionsBar> m_optionsBar;
 

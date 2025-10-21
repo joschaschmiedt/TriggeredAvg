@@ -171,7 +171,9 @@ void OptionsBar::loadCustomParametersFromXml (XmlElement* xml)
     plotTypeSelector->setSelectedId (xml->getIntAttribute ("plot_type", 1), sendNotification);
 }
 
-TriggeredAvgCanvas::TriggeredAvgCanvas (TriggeredAvgNode* processor_) : Visualizer (processor_)
+TriggeredAvgCanvas::TriggeredAvgCanvas (TriggeredAvgNode* processor_)
+    : Visualizer (processor_),
+      m_dataStore (processor_->getDataStore())
 {
     m_timeAxis = std::make_unique<TimeAxis>();
     addAndMakeVisible (m_timeAxis.get());
@@ -241,19 +243,12 @@ void TriggeredAvgCanvas::setWindowSizeMs (float pre_ms_, float post_ms_)
     repaint();
 }
 
-void TriggeredAvgCanvas::pushEvent (const TriggerSource* source,
-                                    uint16 streamId,
-                                    int64 sample_number)
-{
-    m_grid->pushEvent (source, streamId, sample_number);
-}
-
-
 void TriggeredAvgCanvas::addContChannel (const ContinuousChannel* channel,
-                                         const TriggerSource* source)
+                                         const TriggerSource* source,
+                                         int channelIndexInAverageBuffer,
+                                         const MultiChannelAverageBuffer* avgBuffer)
 {
-  // TODO: get poiinter to avgbuffer from processor
-  //processor->    m_grid->addContChannel (channel, source, );
+    m_grid->addContChannel (channel, source, channelIndexInAverageBuffer, avgBuffer);
 }
 
 void TriggeredAvgCanvas::updateColourForSource (const TriggerSource* source)

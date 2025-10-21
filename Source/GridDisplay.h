@@ -22,9 +22,11 @@ public:
     void resized() override;
     void setWindowSizeMs (float pre_ms, float post_ms);
     void setPlotType (TriggeredAverage::DisplayMode plotType);
-    void pushEvent (const TriggerSource* source, uint16 streamId, int64 sample_number);
 
-    void addContChannel (const ContinuousChannel*, const TriggerSource*, const MultiChannelAverageBuffer*);
+    void addContChannel (const ContinuousChannel*,
+                         const TriggerSource*,
+                         int channelIndexInAverageBuffer,
+                         const MultiChannelAverageBuffer*);
 
     void updateColourForSource (const TriggerSource* source);
     void updateConditionName (const TriggerSource* source);

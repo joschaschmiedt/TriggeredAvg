@@ -97,30 +97,24 @@ RingBufferReadResult DataCollector::processCaptureRequest (const CaptureRequest&
         request.triggerSample, request.preSamples, request.postSamples, m_collectBuffer);
     if (result == RingBufferReadResult::Success)
     {
-        //// allocate on first time?
-        //if (! m_averageBuffers.contains (request.triggerSource))
-        //{
-        //    m_averageBuffers.emplace (
-        //        request.triggerSource,
-        //        MultiChannelAverageBuffer (m_collectBuffer.getNumChannels(), m_collectBuffer.getNumSamples()));
-        //}
 
-        //// erase and resize if number of channels does not match
-        //if (m_averageBuffers[request.triggerSource].getNumChannels()
-        //        != m_collectBuffer.getNumChannels()
-        //    || m_averageBuffers[request.triggerSource].getNumSamples()
-        //           != m_collectBuffer.getNumSamples())
-        //{
-        //    m_averageBuffers.erase (request.triggerSource);
-        //    m_averageBuffers.emplace (
-        //        request.triggerSource,
-        //        MultiChannelAverageBuffer (m_collectBuffer.getNumChannels(), m_collectBuffer.getNumSamples()));
-        //}
+        auto* avgBuffer =
+            m_datastore->getRefToAverageBufferForTriggerSource (request.triggerSource);
+        if (! avgBuffer)
+        {
+            m_datastore->ResetAndSetSize (request.triggerSource,
+                                          m_collectBuffer.getNumChannels(),
+                                          m_collectBuffer.getNumSamples());
+            avgBuffer = m_datastore->getRefToAverageBufferForTriggerSource (request.triggerSource);
+        }
+
+        jassert (avgBuffer);
+        jassert (m_collectBuffer.getNumSamples() == avgBuffer->getNumSamples());
+        jassert (m_collectBuffer.getNumChannels() == avgBuffer->getNumChannels());
 
         m_datastore->getRefToAverageBufferForTriggerSource (request.triggerSource)
-            ->addBuffer (m_collectBuffer);
+            ->addDataToAverageFromBuffer (m_collectBuffer);
 
-        //m_averageBuffers.at (request.triggerSource).addBuffer (m_collectBuffer);
     }
     return result;
 }
@@ -153,7 +147,7 @@ MultiChannelAverageBuffer&
     }
     return *this;
 }
-void MultiChannelAverageBuffer::addBuffer (const juce::AudioBuffer<float>& buffer)
+void MultiChannelAverageBuffer::addDataToAverageFromBuffer (const juce::AudioBuffer<float>& buffer)
 {
     jassert (buffer.getNumChannels() == m_numChannels);
     jassert (buffer.getNumSamples() == m_numSamples);

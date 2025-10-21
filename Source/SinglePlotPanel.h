@@ -12,9 +12,10 @@ class TriggerSource;
 class SinglePlotPanel : public Component, public ComboBox::Listener
 {
 public:
-    SinglePlotPanel (TriggeredAverage::GridDisplay*,
+    SinglePlotPanel (const GridDisplay*,
                      const ContinuousChannel*,
                      const TriggerSource*,
+                     int channelIndexInAverageBuffer,
                      const MultiChannelAverageBuffer*);
 
     void paint (Graphics& g) override;
@@ -29,8 +30,8 @@ public:
     void drawBackground (bool);
     void setOverlayMode (bool);
     void setOverlayIndex (int index);
-    void mouseMove (const MouseEvent& event);
-    void mouseExit (const MouseEvent& event);
+    void mouseMove (const MouseEvent& event) override;
+    void mouseExit (const MouseEvent& event) override;
     void comboBoxChanged (ComboBox* comboBox) override;
     void update();
 
@@ -51,8 +52,8 @@ private:
 
     Colour baseColour;
 
-    const TriggerSource* source;
-    TriggeredAverage::GridDisplay* m_parentGrid;
+    const TriggerSource* m_triggerSource;
+    const GridDisplay* m_parentGrid;
     const MultiChannelAverageBuffer* m_averageBuffer;
 
     float pre_ms;
@@ -65,6 +66,7 @@ private:
     bool overlayMode = false;
     bool waitingForWindowToClose;
     size_t numTrials = 0;
-    const double sample_rate;
+    const double m_sampleRate;
+    int channelIndexInAverageBuffer;
 };
 } // namespace TriggeredAverage

@@ -37,7 +37,10 @@ TriggeredAvgNode::TriggeredAvgNode()
       // TODO: check if 10 seconds buffer is sufficient (lock-free?) and how to handle more than one stream
       m_ringBufferSize (
           static_cast<int> (GenericProcessor::getSampleRate (m_dataStreamIndex) * 10.0f)),
-      m_threadsInitialized (false) // 10 seconds buffer
+      m_threadsInitialized (false), // 10 seconds buffer
+      m_dataStore (std::make_unique<DataStore>()),
+      m_dataCollector (
+          std::make_unique<DataCollector> (this, m_ringBuffer.get(), m_dataStore.get()))
 {
     addFloatParameter (Parameter::PROCESSOR_SCOPE,
                        ParameterNames::pre_ms,
@@ -139,10 +142,10 @@ void TriggeredAvgNode::process (AudioBuffer<float>& buffer)
     // TODO: Add handling of multiple streams (ring buffer per stream?)
     StreamId streamId = getDataStreams()[m_dataStreamIndex]->getStreamId();
     auto timestamp = getFirstTimestampForBlock (streamId);
-    
+
     SampleNumber firstSampleNumber = getFirstSampleNumberForBlock (streamId);
     auto diff = firstSampleNumber - lastSampleNumber;
-    if(diff < 0)
+    if (diff < 0)
     {
         lastSampleNumber += 0;
     }
@@ -368,24 +371,22 @@ void TriggeredAvgNode::handleTTLEvent (TTLEventPtr event)
     }
 }
 
-void TriggeredAvgNode::handleAsyncUpdate ()
+void TriggeredAvgNode::handleAsyncUpdate()
 {
     // TODO: handle redrawring on message thread (here)
     int tst = 0;
     m_canvas->refresh();
 }
 
-
 void TriggeredAvgNode::initializeThreads()
 {
     if (m_threadsInitialized.load())
         shutdownThreads();
 
+    m_ringBuffer = std::make_unique<MultiChannelRingBuffer> (getNumInputs(), m_ringBufferSize);
+
     if (getNumInputs() > 0 && m_ringBufferSize > 0)
     {
-        m_dataStore = std::make_unique<DataStore>();
-        m_ringBuffer = std::make_unique<MultiChannelRingBuffer> (getNumInputs(), m_ringBufferSize);
-        m_dataCollector = std::make_unique<DataCollector> (this, m_ringBuffer.get(), m_dataStore.get());
         m_dataCollector->startThread (Thread::Priority::high);
         m_threadsInitialized.store (true);
     }

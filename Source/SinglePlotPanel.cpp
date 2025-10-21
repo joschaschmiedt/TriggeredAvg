@@ -7,18 +7,20 @@
 using namespace TriggeredAverage;
 const static Colour panelBackground { 30, 30, 40 };
 
-SinglePlotPanel::SinglePlotPanel (GridDisplay* display_,
+SinglePlotPanel::SinglePlotPanel (const GridDisplay* display_,
                                   const ContinuousChannel* channel,
                                   const TriggerSource* source_,
+                                  int channelIndexInAverageBuffer_,
                                   const MultiChannelAverageBuffer* avgBuffer)
     : streamId (channel->getStreamId()),
       contChannel (channel),
       baseColour (source_->colour),
-      source (source_),
+      m_triggerSource (source_),
       m_parentGrid (display_),
       m_averageBuffer (avgBuffer),
       waitingForWindowToClose (false),
-      sample_rate (channel->getSampleRate())
+      m_sampleRate (channel->getSampleRate()),
+      channelIndexInAverageBuffer (channelIndexInAverageBuffer_)
 {
     pre_ms = 0;
     post_ms = 0;
@@ -48,7 +50,7 @@ SinglePlotPanel::SinglePlotPanel (GridDisplay* display_,
     conditionLabel = std::make_unique<Label> ("condition label");
     conditionLabel->setFont (font16pt);
     conditionLabel->setJustificationType (Justification::topLeft);
-    conditionLabel->setText (source->name, dontSendNotification);
+    conditionLabel->setText (m_triggerSource->name, dontSendNotification);
     conditionLabel->setColour (Label::textColourId, baseColour);
     addAndMakeVisible (conditionLabel.get());
 
@@ -193,41 +195,43 @@ void SinglePlotPanel::paint (Graphics& g)
     {
         // Draw average trace
         auto avgBuffer = m_averageBuffer->getAverage();
-        
+
         if (avgBuffer.getNumSamples() > 0 && avgBuffer.getNumChannels() > 0)
         {
             const int numSamples = avgBuffer.getNumSamples();
-            const float* channelData = avgBuffer.getReadPointer(0); // First channel
-            
+            const float* channelData =
+                avgBuffer.getReadPointer (channelIndexInAverageBuffer); // First channel
+
             // Calculate min/max for scaling
             float minVal = channelData[0];
             float maxVal = channelData[0];
             for (int i = 1; i < numSamples; ++i)
             {
-                minVal = std::min(minVal, channelData[i]);
-                maxVal = std::max(maxVal, channelData[i]);
+                minVal = std::min (minVal, channelData[i]);
+                maxVal = std::max (maxVal, channelData[i]);
             }
-            
+
             float range = maxVal - minVal;
             if (range < 1e-6f)
                 range = 1.0f;
-            
+
             // Create path for average trace
             Path averagePath;
             for (int i = 0; i < numSamples; ++i)
             {
-                float x = (static_cast<float>(i) / static_cast<float>(numSamples - 1)) * static_cast<float>(panelWidthPx);
+                float x = (static_cast<float> (i) / static_cast<float> (numSamples - 1))
+                          * static_cast<float> (panelWidthPx);
                 float normalizedValue = (channelData[i] - minVal) / range;
-                float y = static_cast<float>(panelHeightPx) * (1.0f - normalizedValue);
-                
+                float y = static_cast<float> (panelHeightPx) * (1.0f - normalizedValue);
+
                 if (i == 0)
-                    averagePath.startNewSubPath(x, y);
+                    averagePath.startNewSubPath (x, y);
                 else
-                    averagePath.lineTo(x, y);
+                    averagePath.lineTo (x, y);
             }
-            
-            g.setColour(baseColour);
-            g.strokePath(averagePath, PathStrokeType(2.0f));
+
+            g.setColour (baseColour);
+            g.strokePath (averagePath, PathStrokeType (2.0f));
         }
     }
 
@@ -281,8 +285,8 @@ DynamicObject SinglePlotPanel::getInfo() const
     DynamicObject info;
 
     info.setProperty (Identifier ("channel"), var (contChannel->getName()));
-    info.setProperty (Identifier ("condition"), var (source->name));
-    info.setProperty (Identifier ("color"), var (source->colour.toString()));
+    info.setProperty (Identifier ("condition"), var (m_triggerSource->name));
+    info.setProperty (Identifier ("color"), var (m_triggerSource->colour.toString()));
     info.setProperty (Identifier ("trial_count"), var (int (numTrials)));
 
     return info;

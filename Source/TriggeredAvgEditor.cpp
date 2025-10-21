@@ -2,6 +2,7 @@
 
 #include "TriggeredAvgEditor.h"
 
+#include "DataCollector.h"
 #include "PopupConfigurationWindow.h"
 #include "TriggeredAvgActions.h"
 #include "TriggeredAvgCanvas.h"
@@ -14,9 +15,8 @@ TriggeredAvgEditor::TriggeredAvgEditor (GenericProcessor* parentNode)
       currentConfigWindow (nullptr)
 
 {
-    addBoundedValueParameterEditor (Parameter::PROCESSOR_SCOPE, "pre_ms", 20, 30);
-
-    addBoundedValueParameterEditor (Parameter::PROCESSOR_SCOPE, "post_ms", 20, 78);
+    addBoundedValueParameterEditor (Parameter::PROCESSOR_SCOPE, ParameterNames::pre_ms, 20, 30);
+    addBoundedValueParameterEditor (Parameter::PROCESSOR_SCOPE, ParameterNames::post_ms, 20, 78);
 
     for (auto& p : { "pre_ms", "post_ms" })
     {
@@ -54,20 +54,38 @@ void TriggeredAvgEditor::updateSettings()
 
     TriggeredAvgNode* proc = dynamic_cast<TriggeredAvgNode*> (getProcessor());
     assert (proc);
+    DataStore* store = (proc->getDataStore());
+    assert (store);
 
-    for (int i = 0; i < proc->getTotalContinuousChannels(); i++)
+    store->Clear();
+    const int nChannels = proc->getTotalContinuousChannels();
+    const int nSamples = proc->getNumberOfSamples();
+
+    for (auto source : proc->getTriggerSources())
     {
-        const ContinuousChannel* channel = proc->getContinuousChannel (i);
-
-        for (auto source : proc->getTriggerSources())
+        store->ResetAndSetSize (source, nChannels, nSamples);
+        for (int i = 0; i < proc->getTotalContinuousChannels(); i++)
         {
-            //if (channel->isValid())
-            {
-                canvas->addContChannel (channel, source);
-                //LOGD("Editor adding ", channel->getName(), " for ", source->name);
-            }
+            const ContinuousChannel* channel = proc->getContinuousChannel (i);
+
+            canvas->addContChannel (
+                channel, source, i, store->getRefToAverageBufferForTriggerSource (source));
         }
     }
+    //for (int i = 0; i < proc->getTotalContinuousChannels(); i++)
+    //{
+    //    const ContinuousChannel* channel = proc->getContinuousChannel (i);
+
+    //    for (auto source : proc->getTriggerSources())
+    //    {
+    //        //if (channel->isValid())
+    //        {
+    //            auto* buf = proc->getDataStore()->getRefToAverageBufferForTriggerSource (source);
+    //            canvas->addContChannel (channel, source);
+    //            //LOGD("Editor adding ", channel->getName(), " for ", source->name);
+    //        }
+    //    }
+    //}
 
     canvas->setWindowSizeMs (proc->getPreWindowSizeMs(), proc->getPostWindowSizeMs());
 
@@ -130,8 +148,7 @@ void TriggeredAvgEditor::removeTriggerSources (
 {
     TriggeredAvgNode* proc = (TriggeredAvgNode*) getProcessor();
 
-    RemoveTriggerConditions* action =
-        new RemoveTriggerConditions (proc, triggerSourcesToRemove);
+    RemoveTriggerConditions* action = new RemoveTriggerConditions (proc, triggerSourcesToRemove);
 
     CoreServices::getUndoManager()->beginNewTransaction ("Disabled during acquisition");
     CoreServices::getUndoManager()->perform ((UndoableAction*) action);

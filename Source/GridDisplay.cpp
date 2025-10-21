@@ -72,12 +72,11 @@ void TriggeredAverage::GridDisplay::resized()
 
 void TriggeredAverage::GridDisplay::addContChannel (const ContinuousChannel* channel,
                                                     const TriggerSource* source,
+                                                    int channelIndexInAverageBuffer,
                                                     const MultiChannelAverageBuffer* avgBuffer)
 {
-    auto* h = new SinglePlotPanel (this, channel, source, avgBuffer);
+    auto* h = new SinglePlotPanel (this, channel, source, channelIndexInAverageBuffer, avgBuffer);
     h->setPlotType (plotType);
-
-    //LOGD("Display adding ", channel->getName(), " for ", source->name);
 
     panels.add (h);
     triggerSourceToPanelMap[source].add (h);
@@ -156,18 +155,6 @@ void TriggeredAverage::GridDisplay::setPlotType (TriggeredAverage::DisplayMode p
     }
 }
 
-void TriggeredAverage::GridDisplay::pushEvent (const TriggerSource* source,
-                                               uint16 streamId,
-                                               int64 sample_number)
-{
-    for (auto hist : triggerSourceToPanelMap[source])
-    {
-        if (hist->streamId == streamId)
-        {
-            //hist->addEvent (sample_number);
-        }
-    }
-}
 
 int TriggeredAverage::GridDisplay::getDesiredHeight() const { return totalHeight; }
 

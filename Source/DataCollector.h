@@ -26,27 +26,6 @@ public:
 
     MultiChannelAverageBuffer* getRefToAverageBufferForTriggerSource (TriggerSource* source)
     {
-        // TODO:
-        // allocate on first time?
-        //if (! m_averageBuffers.contains (request.triggerSource))
-        //{
-        //    m_averageBuffers.emplace (
-        //        request.triggerSource,
-        //        MultiChannelAverageBuffer (m_collectBuffer.getNumChannels(), m_collectBuffer.getNumSamples()));
-        //}
-
-        //// erase and resize if number of channels does not match
-        //if (m_averageBuffers[request.triggerSource].getNumChannels()
-        //        != m_collectBuffer.getNumChannels()
-        //    || m_averageBuffers[request.triggerSource].getNumSamples()
-        //           != m_collectBuffer.getNumSamples())
-        //{
-        //    m_averageBuffers.erase (request.triggerSource);
-        //    m_averageBuffers.emplace (
-        //        request.triggerSource,
-        //        MultiChannelAverageBuffer (m_collectBuffer.getNumChannels(), m_collectBuffer.getNumSamples()));
-        //}
-
         if (m_averageBuffers.contains (source))
             return &m_averageBuffers.at (source);
         return nullptr;
@@ -54,6 +33,12 @@ public:
     std::scoped_lock<std::recursive_mutex> GetLock()
     {
         return std::scoped_lock<std::recursive_mutex> (m_mutex);
+    }
+
+    void Clear()
+    {
+        auto lock = GetLock();
+        m_averageBuffers.clear();
     }
     // TODO: Add method for getteing a ref with a lock
 
@@ -70,23 +55,20 @@ public:
     void run() override;
     void registerTriggerSource (const TriggerSource*);
     void registerCaptureRequest (const CaptureRequest&);
-    //void resetAverageBuffers()
-    //{
-    //    const ScopedLock lock (triggerQueueLock);
-    //    //m_averageBuffers.clear();
-    //}
 
 private:
+    // dependencies
     TriggeredAvgNode* m_processor;
     MultiChannelRingBuffer* ringBuffer;
-
-    CriticalSection triggerQueueLock;
-    std::deque<CaptureRequest> captureRequestQueue;
-    WaitableEvent newTriggerEvent;
-
-    AudioBuffer<float> m_collectBuffer;
-    //std::unordered_map<TriggerSource*, MultiChannelAverageBuffer> m_averageBuffers;
     DataStore* m_datastore;
+
+    // data
+    std::deque<CaptureRequest> captureRequestQueue;
+    AudioBuffer<float> m_collectBuffer;
+
+    // synchronization
+    CriticalSection triggerQueueLock;
+    WaitableEvent newTriggerEvent;
 
     RingBufferReadResult processCaptureRequest (const CaptureRequest&);
 
@@ -102,7 +84,7 @@ public:
     MultiChannelAverageBuffer& operator= (MultiChannelAverageBuffer&& other) noexcept;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MultiChannelAverageBuffer)
 
-    void addBuffer (const juce::AudioBuffer<float>& buffer);
+    void addDataToAverageFromBuffer (const juce::AudioBuffer<float>& buffer);
     AudioBuffer<float> getAverage() const;
     AudioBuffer<float> getStandardDeviation() const;
 
@@ -117,7 +99,7 @@ public:
         m_numSamples = nSamples;
         m_sumBuffer.setSize (nChannels, nSamples);
         m_sumSquaresBuffer.setSize (nChannels, nSamples);
-        resetTrials(); 
+        resetTrials();
     }
 
 private:
