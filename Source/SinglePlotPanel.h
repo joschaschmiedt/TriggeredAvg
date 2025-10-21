@@ -4,6 +4,7 @@
 
 namespace TriggeredAverage
 {
+class MultiChannelAverageBuffer;
 enum class DisplayMode : std::uint8_t;
 class GridDisplay;
 class TriggerSource;
@@ -13,7 +14,8 @@ class SinglePlotPanel : public Component, public ComboBox::Listener
 public:
     SinglePlotPanel (TriggeredAverage::GridDisplay*,
                      const ContinuousChannel*,
-                     const TriggerSource*);
+                     const TriggerSource*,
+                     const MultiChannelAverageBuffer*);
 
     void paint (Graphics& g) override;
     void resized() override;
@@ -49,9 +51,9 @@ private:
 
     Colour baseColour;
 
-
     const TriggerSource* source;
-    TriggeredAverage::GridDisplay* display;
+    TriggeredAverage::GridDisplay* m_parentGrid;
+    const MultiChannelAverageBuffer* m_averageBuffer;
 
     float pre_ms;
     float post_ms;

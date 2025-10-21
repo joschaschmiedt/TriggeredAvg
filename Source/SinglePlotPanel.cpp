@@ -1,4 +1,6 @@
 #include "SinglePlotPanel.h"
+
+#include "DataCollector.h"
 #include "TriggerSource.h"
 #include "TriggeredAvgCanvas.h"
 
@@ -7,12 +9,14 @@ const static Colour panelBackground { 30, 30, 40 };
 
 SinglePlotPanel::SinglePlotPanel (GridDisplay* display_,
                                   const ContinuousChannel* channel,
-                                  const TriggerSource* source_)
+                                  const TriggerSource* source_,
+                                  const MultiChannelAverageBuffer* avgBuffer)
     : streamId (channel->getStreamId()),
       contChannel (channel),
       baseColour (source_->colour),
       source (source_),
-      display (display_),
+      m_parentGrid (display_),
+      m_averageBuffer (avgBuffer),
       waitingForWindowToClose (false),
       sample_rate (channel->getSampleRate())
 {
@@ -170,10 +174,7 @@ void SinglePlotPanel::drawBackground (bool shouldDraw)
     infoLabel->setVisible (shouldDrawBackground);
 }
 
-void SinglePlotPanel::setOverlayMode (bool shouldOverlay)
-{
-    overlayMode = shouldOverlay;
-}
+void SinglePlotPanel::setOverlayMode (bool shouldOverlay) { overlayMode = shouldOverlay; }
 
 void SinglePlotPanel::setOverlayIndex (int index)
 {
@@ -188,10 +189,46 @@ void SinglePlotPanel::paint (Graphics& g)
     if (shouldDrawBackground)
         g.fillAll (panelBackground);
 
-    if (plotAverage)
+    if (plotAverage && m_averageBuffer)
     {
-        // TODO: draw average
-        g.drawLine (0.0f, 0.0f, 10.0f, 10.0f, 2.0f);
+        // Draw average trace
+        auto avgBuffer = m_averageBuffer->getAverage();
+        
+        if (avgBuffer.getNumSamples() > 0 && avgBuffer.getNumChannels() > 0)
+        {
+            const int numSamples = avgBuffer.getNumSamples();
+            const float* channelData = avgBuffer.getReadPointer(0); // First channel
+            
+            // Calculate min/max for scaling
+            float minVal = channelData[0];
+            float maxVal = channelData[0];
+            for (int i = 1; i < numSamples; ++i)
+            {
+                minVal = std::min(minVal, channelData[i]);
+                maxVal = std::max(maxVal, channelData[i]);
+            }
+            
+            float range = maxVal - minVal;
+            if (range < 1e-6f)
+                range = 1.0f;
+            
+            // Create path for average trace
+            Path averagePath;
+            for (int i = 0; i < numSamples; ++i)
+            {
+                float x = (static_cast<float>(i) / static_cast<float>(numSamples - 1)) * static_cast<float>(panelWidthPx);
+                float normalizedValue = (channelData[i] - minVal) / range;
+                float y = static_cast<float>(panelHeightPx) * (1.0f - normalizedValue);
+                
+                if (i == 0)
+                    averagePath.startNewSubPath(x, y);
+                else
+                    averagePath.lineTo(x, y);
+            }
+            
+            g.setColour(baseColour);
+            g.strokePath(averagePath, PathStrokeType(2.0f));
+        }
     }
 
     if (plotAllTraces)
@@ -200,11 +237,12 @@ void SinglePlotPanel::paint (Graphics& g)
         g.drawLine (-1.0f, 2.0f, 3.0f, -1.0f, 0.5f);
     }
 
-    float zeroLoc = (pre_ms) / (pre_ms + post_ms) * static_cast<float> (panelWidthPx);
-
     auto trialCounterString = String (numTrials);
     trialCounter->setText (trialCounterString, dontSendNotification);
     g.setColour (Colours::white);
+
+    // t = 0
+    float zeroLoc = (pre_ms) / (pre_ms + post_ms) * static_cast<float> (panelWidthPx);
     g.drawLine (zeroLoc, 0, zeroLoc, static_cast<float> (getHeight()), 2.0);
 }
 

@@ -3,6 +3,7 @@
 
 namespace TriggeredAverage
 {
+class MultiChannelAverageBuffer;
 enum class DisplayMode : std::uint8_t;
 class SinglePlotPanel;
 class TriggerSource;
@@ -23,7 +24,7 @@ public:
     void setPlotType (TriggeredAverage::DisplayMode plotType);
     void pushEvent (const TriggerSource* source, uint16 streamId, int64 sample_number);
 
-    void addContChannel (const ContinuousChannel* channel, const TriggerSource* source);
+    void addContChannel (const ContinuousChannel*, const TriggerSource*, const MultiChannelAverageBuffer*);
 
     void updateColourForSource (const TriggerSource* source);
     void updateConditionName (const TriggerSource* source);

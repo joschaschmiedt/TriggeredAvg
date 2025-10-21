@@ -23,6 +23,7 @@
 */
 #pragma once
 
+
 #include <ProcessorHeaders.h>
 #include <atomic>
 #include <memory>
@@ -35,6 +36,7 @@ class TriggeredAvgNode;
 class DataCollector;
 class MultiChannelRingBuffer;
 class TriggerSource;
+class DataStore;
 enum class TriggerType : std::int_fast8_t;
 class TriggeredAvgCanvas;
 
@@ -114,6 +116,7 @@ private:
     void initializeThreads();
     void shutdownThreads();
 
+    std::unique_ptr<DataStore> m_dataStore;
     std::unique_ptr<MultiChannelRingBuffer> m_ringBuffer;
     std::unique_ptr<DataCollector> m_dataCollector;
     TriggeredAvgCanvas* m_canvas;

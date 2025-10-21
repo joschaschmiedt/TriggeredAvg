@@ -1,4 +1,6 @@
 #include "GridDisplay.h"
+
+#include "DataCollector.h"
 #include "SinglePlotPanel.h"
 #include "TriggerSource.h"
 #include "TriggeredAvgNode.h"
@@ -69,9 +71,10 @@ void TriggeredAverage::GridDisplay::resized()
 }
 
 void TriggeredAverage::GridDisplay::addContChannel (const ContinuousChannel* channel,
-                                                    const TriggerSource* source)
+                                                    const TriggerSource* source,
+                                                    const MultiChannelAverageBuffer* avgBuffer)
 {
-    auto* h = new SinglePlotPanel (this, channel, source);
+    auto* h = new SinglePlotPanel (this, channel, source, avgBuffer);
     h->setPlotType (plotType);
 
     //LOGD("Display adding ", channel->getName(), " for ", source->name);
@@ -89,21 +92,21 @@ void TriggeredAverage::GridDisplay::addContChannel (const ContinuousChannel* cha
 
 void TriggeredAverage::GridDisplay::updateColourForSource (const TriggerSource* source)
 {
-    Array<SinglePlotPanel*> h = triggerSourceToPanelMap[source];
+    Array<SinglePlotPanel*> plotPanels = triggerSourceToPanelMap[source];
 
-    for (auto hist : h)
+    for (auto panel : plotPanels)
     {
-        hist->setSourceColour (source->colour);
+        panel->setSourceColour (source->colour);
     }
 }
 
 void TriggeredAverage::GridDisplay::updateConditionName (const TriggerSource* source)
 {
-    Array<SinglePlotPanel*> h = triggerSourceToPanelMap[source];
+    Array<SinglePlotPanel*> plotPanels = triggerSourceToPanelMap[source];
 
-    for (auto hist : h)
+    for (auto panel : plotPanels)
     {
-        hist->setSourceName (source->name);
+        panel->setSourceName (source->name);
     }
 }
 

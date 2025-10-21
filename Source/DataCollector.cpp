@@ -6,10 +6,11 @@
 
 using namespace TriggeredAverage;
 
-DataCollector::DataCollector (TriggeredAvgNode* viewer_, MultiChannelRingBuffer* buffer_)
+DataCollector::DataCollector (TriggeredAvgNode* viewer_, MultiChannelRingBuffer* buffer_, DataStore* datastore_)
     : Thread ("TriggeredAvg: Data Collector"),
-      viewer (viewer_),
+      m_processor (viewer_),
       ringBuffer (buffer_),
+      m_datastore(datastore_),
       newTriggerEvent (false)
 {
     //setPriority(Thread::Priority::high);
@@ -32,6 +33,7 @@ void DataCollector::run()
         if (bool wasTriggered = newTriggerEvent.wait (100))
         {
             const ScopedLock lock (triggerQueueLock);
+            bool averageBuffersWereUpdated = false;
             while (! captureRequestQueue.empty())
             {
                 switch (processCaptureRequest (captureRequestQueue.front()))
@@ -39,6 +41,7 @@ void DataCollector::run()
                     case RingBufferReadResult::Success:
                     case RingBufferReadResult::DataInRingBufferTooOld:
                     case RingBufferReadResult::InvalidParameters:
+                        averageBuffersWereUpdated = true;
                         captureRequestQueue.pop_front();
                         break;
                     case RingBufferReadResult::NotEnoughNewData:
@@ -50,50 +53,59 @@ void DataCollector::run()
                         break;
                 }
             }
+            if (averageBuffersWereUpdated)
+            {
+                // notify the processor that new data is available
+                if (m_processor != nullptr)
+                    m_processor->triggerAsyncUpdate();
+            }
         }
     }
 }
 
+// process a single capture request on the ring buffer, running on the data collector thread
 RingBufferReadResult DataCollector::processCaptureRequest (const CaptureRequest& request)
 {
-    if (! viewer)
-        return RingBufferReadResult::UnknownError;
-
     auto result = ringBuffer->readAroundSample (
         request.triggerSample, request.preSamples, request.postSamples, m_collectBuffer);
     if (result == RingBufferReadResult::Success)
     {
-        // allocate on first time?
-        if(!m_averageBuffer.contains (request.triggerSource))
-        {
-            m_averageBuffer.emplace (
-                request.triggerSource,
-                AverageBuffer (m_collectBuffer.getNumChannels(), m_collectBuffer.getNumSamples()));
-        }
+        //// allocate on first time?
+        //if (! m_averageBuffers.contains (request.triggerSource))
+        //{
+        //    m_averageBuffers.emplace (
+        //        request.triggerSource,
+        //        MultiChannelAverageBuffer (m_collectBuffer.getNumChannels(), m_collectBuffer.getNumSamples()));
+        //}
 
-        // erase and resize if number of channels does not match
-        if (m_averageBuffer[request.triggerSource].getNumChannels() != m_collectBuffer.getNumChannels() ||
-            m_averageBuffer[request.triggerSource].getNumSamples() != m_collectBuffer.getNumSamples())
-        {
-            m_averageBuffer.erase (request.triggerSource);
-            m_averageBuffer.emplace (
-                request.triggerSource,
-                AverageBuffer (m_collectBuffer.getNumChannels(), m_collectBuffer.getNumSamples()));
-        }
+        //// erase and resize if number of channels does not match
+        //if (m_averageBuffers[request.triggerSource].getNumChannels()
+        //        != m_collectBuffer.getNumChannels()
+        //    || m_averageBuffers[request.triggerSource].getNumSamples()
+        //           != m_collectBuffer.getNumSamples())
+        //{
+        //    m_averageBuffers.erase (request.triggerSource);
+        //    m_averageBuffers.emplace (
+        //        request.triggerSource,
+        //        MultiChannelAverageBuffer (m_collectBuffer.getNumChannels(), m_collectBuffer.getNumSamples()));
+        //}
 
-        m_averageBuffer.at(request.triggerSource).addBuffer (m_collectBuffer);
+      m_datastore->getRefToAverageBufferForTriggerSource (request.triggerSource)
+            ->addBuffer (m_collectBuffer);
+
+        //m_averageBuffers.at (request.triggerSource).addBuffer (m_collectBuffer);
     }
     return result;
 }
-AverageBuffer::AverageBuffer (int numChannels, int numSamples)
+MultiChannelAverageBuffer::MultiChannelAverageBuffer (int numChannels, int numSamples)
     : m_numChannels (numChannels),
       m_numSamples (numSamples)
 {
     m_sumBuffer.setSize (numChannels, numSamples);
     m_sumSquaresBuffer.setSize (numChannels, numSamples);
-    reset();
+    resetTrials();
 }
-AverageBuffer::AverageBuffer (AverageBuffer&& other) noexcept
+MultiChannelAverageBuffer::MultiChannelAverageBuffer (MultiChannelAverageBuffer&& other) noexcept
     : m_numChannels (other.m_numChannels),
       m_numSamples (other.m_numSamples)
 {
@@ -101,7 +113,7 @@ AverageBuffer::AverageBuffer (AverageBuffer&& other) noexcept
     m_sumSquaresBuffer = std::move (other.m_sumSquaresBuffer);
     m_numTrials = other.m_numTrials;
 }
-AverageBuffer& AverageBuffer::operator= (AverageBuffer&& other) noexcept
+MultiChannelAverageBuffer& MultiChannelAverageBuffer::operator= (MultiChannelAverageBuffer&& other) noexcept
 {
     if (this != &other)
     {
@@ -113,7 +125,7 @@ AverageBuffer& AverageBuffer::operator= (AverageBuffer&& other) noexcept
     }
     return *this;
 }
-void AverageBuffer::addBuffer (const juce::AudioBuffer<float>& buffer)
+void MultiChannelAverageBuffer::addBuffer (const juce::AudioBuffer<float>& buffer)
 {
     jassert (buffer.getNumChannels() == m_numChannels);
     jassert (buffer.getNumSamples() == m_numSamples);
@@ -134,10 +146,9 @@ void AverageBuffer::addBuffer (const juce::AudioBuffer<float>& buffer)
 
     ++m_numTrials;
 }
-AudioBuffer<float> AverageBuffer::getAverage() const
+AudioBuffer<float> MultiChannelAverageBuffer::getAverage() const
 {
     AudioBuffer<float> outputBuffer;
-    ;
     if (m_numTrials == 0)
     {
         outputBuffer.clear();
@@ -158,7 +169,7 @@ AudioBuffer<float> AverageBuffer::getAverage() const
     }
     return outputBuffer;
 }
-AudioBuffer<float> AverageBuffer::getStandardDeviation() const
+AudioBuffer<float> MultiChannelAverageBuffer::getStandardDeviation() const
 {
     juce::AudioBuffer<float> outputBuffer;
     if (m_numTrials == 0)
@@ -187,19 +198,19 @@ AudioBuffer<float> AverageBuffer::getStandardDeviation() const
     return outputBuffer;
 }
 
-void AverageBuffer::reset()
+void MultiChannelAverageBuffer::resetTrials()
 {
     m_sumBuffer.clear();
     m_sumSquaresBuffer.clear();
     m_numTrials = 0;
 }
-int AverageBuffer::getNumTrials() const { return m_numTrials; }
-int AverageBuffer::getNumChannels() const
+int MultiChannelAverageBuffer::getNumTrials() const { return m_numTrials; }
+int MultiChannelAverageBuffer::getNumChannels() const
 {
     assert (m_sumBuffer.getNumChannels() == m_sumSquaresBuffer.getNumChannels());
     return m_sumBuffer.getNumChannels();
 }
-int AverageBuffer::getNumSamples() const
+int MultiChannelAverageBuffer::getNumSamples() const
 {
     assert (m_sumBuffer.getNumChannels() == m_sumSquaresBuffer.getNumChannels());
     return m_sumBuffer.getNumSamples();

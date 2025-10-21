@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
+#include "GridDisplay.h"
 #include "TimeAxis.h"
 #include "TriggeredAvgNode.h"
 #include <VisualizerWindowHeaders.h>
@@ -48,8 +49,8 @@ public:
 
     void buttonClicked (Button* button) override;
     void comboBoxChanged (ComboBox* comboBox) override;
-    void resized();
-    void paint (Graphics& g);
+    void resized() override;
+    void paint (Graphics& g) override;
     void saveCustomParametersToXml (XmlElement* xml);
     void loadCustomParametersFromXml (XmlElement* xml);
 
@@ -77,7 +78,11 @@ public:
     /** Renders the Visualizer on each animation callback cycle
         Called instead of Juce's "repaint()" to avoid redrawing underlying components
         if not necessary.*/
-    void refresh() override {}
+    void refresh() override
+    {
+        if (m_grid)
+            m_grid->refresh();
+    }
     /** Called when the Visualizer's tab becomes visible after being hidden .*/
     void refreshState() override;
 
@@ -122,13 +127,13 @@ private:
     float pre_ms;
     float post_ms;
 
-    std::unique_ptr<Viewport> viewport;
+    std::unique_ptr<Viewport> m_mainViewport;
 
-    std::unique_ptr<TimeAxis> scale;
-    std::unique_ptr<GridDisplay> display;
+    std::unique_ptr<TimeAxis> m_timeAxis;
+    std::unique_ptr<GridDisplay> m_grid;
 
-    std::unique_ptr<Viewport> optionsBarHolder;
-    std::unique_ptr<OptionsBar> optionsBar;
+    std::unique_ptr<Viewport> m_optionsBarHolder;
+    std::unique_ptr<OptionsBar> m_optionsBar;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TriggeredAvgCanvas)
 };

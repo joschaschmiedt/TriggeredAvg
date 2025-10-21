@@ -2,6 +2,8 @@
 #include "GridDisplay.h"
 #include "TimeAxis.h"
 #include "TriggeredAvgNode.h"
+
+#include <mfidl.h>
 using namespace TriggeredAverage;
 
 OptionsBar::OptionsBar (TriggeredAvgCanvas* canvas_, GridDisplay* display_, TimeAxis* timescale_)
@@ -171,53 +173,53 @@ void OptionsBar::loadCustomParametersFromXml (XmlElement* xml)
 
 TriggeredAvgCanvas::TriggeredAvgCanvas (TriggeredAvgNode* processor_) : Visualizer (processor_)
 {
-    scale = std::make_unique<TimeAxis>();
-    addAndMakeVisible (scale.get());
+    m_timeAxis = std::make_unique<TimeAxis>();
+    addAndMakeVisible (m_timeAxis.get());
 
-    viewport = std::make_unique<Viewport>();
-    viewport->setScrollBarsShown (true, true);
+    m_mainViewport = std::make_unique<Viewport>();
+    m_mainViewport->setScrollBarsShown (true, true);
 
-    display = std::make_unique<GridDisplay>();
-    viewport->setViewedComponent (display.get(), false);
-    viewport->setScrollBarThickness (15);
-    addAndMakeVisible (viewport.get());
-    display->setBounds (0, 50, 500, 100);
+    m_grid = std::make_unique<GridDisplay>();
+    m_mainViewport->setViewedComponent (m_grid.get(), false);
+    m_mainViewport->setScrollBarThickness (15);
+    addAndMakeVisible (m_mainViewport.get());
+    m_grid->setBounds (0, 50, 500, 100);
 
-    optionsBarHolder = std::make_unique<Viewport>();
-    optionsBarHolder->setScrollBarsShown (false, true);
-    optionsBarHolder->setScrollBarThickness (10);
+    m_optionsBarHolder = std::make_unique<Viewport>();
+    m_optionsBarHolder->setScrollBarsShown (false, true);
+    m_optionsBarHolder->setScrollBarThickness (10);
 
-    optionsBar = std::make_unique<OptionsBar> (this, display.get(), scale.get());
-    optionsBarHolder->setViewedComponent (optionsBar.get(), false);
-    addAndMakeVisible (optionsBarHolder.get());
+    m_optionsBar = std::make_unique<OptionsBar> (this, m_grid.get(), m_timeAxis.get());
+    m_optionsBarHolder->setViewedComponent (m_optionsBar.get(), false);
+    addAndMakeVisible (m_optionsBarHolder.get());
 }
 
 void TriggeredAvgCanvas::refreshState() { resized(); }
 
 void TriggeredAvgCanvas::resized()
 {
-    const int scrollBarThickness = viewport->getScrollBarThickness();
+    const int scrollBarThickness = m_mainViewport->getScrollBarThickness();
     const int timescaleHeight = 40;
     const int optionsBarHeight = 44;
 
-    if (scale->isVisible())
+    if (m_timeAxis->isVisible())
     {
-        scale->setBounds (10, 0, getWidth() - scrollBarThickness - 150, timescaleHeight);
-        viewport->setBounds (
+        m_timeAxis->setBounds (10, 0, getWidth() - scrollBarThickness - 150, timescaleHeight);
+        m_mainViewport->setBounds (
             0, timescaleHeight, getWidth(), getHeight() - timescaleHeight - optionsBarHeight);
     }
     else
     {
-        viewport->setBounds (0, 10, getWidth(), getHeight() - 10 - optionsBarHeight);
+        m_mainViewport->setBounds (0, 10, getWidth(), getHeight() - 10 - optionsBarHeight);
     }
 
-    display->setBounds (0, 0, getWidth() - scrollBarThickness, display->getDesiredHeight());
-    display->resized();
+    m_grid->setBounds (0, 0, getWidth() - scrollBarThickness, m_grid->getDesiredHeight());
+    m_grid->resized();
 
-    optionsBarHolder->setBounds (0, getHeight() - optionsBarHeight, getWidth(), optionsBarHeight);
+    m_optionsBarHolder->setBounds (0, getHeight() - optionsBarHeight, getWidth(), optionsBarHeight);
 
     int optionsWidth = getWidth() < 775 ? 775 : getWidth();
-    optionsBar->setBounds (0, 0, optionsWidth, optionsBarHolder->getHeight());
+    m_optionsBar->setBounds (0, 0, optionsWidth, m_optionsBarHolder->getHeight());
 }
 
 void TriggeredAvgCanvas::paint (Graphics& g)
@@ -225,7 +227,7 @@ void TriggeredAvgCanvas::paint (Graphics& g)
     g.fillAll (Colour (0, 18, 43));
 
     g.setColour (findColour (ThemeColours::componentBackground));
-    g.fillRect (optionsBarHolder->getBounds());
+    g.fillRect (m_optionsBarHolder->getBounds());
 }
 
 void TriggeredAvgCanvas::setWindowSizeMs (float pre_ms_, float post_ms_)
@@ -233,8 +235,8 @@ void TriggeredAvgCanvas::setWindowSizeMs (float pre_ms_, float post_ms_)
     pre_ms = pre_ms_;
     post_ms = post_ms_;
 
-    display->setWindowSizeMs (pre_ms, post_ms);
-    scale->setWindowSizeMs (pre_ms, post_ms);
+    m_grid->setWindowSizeMs (pre_ms, post_ms);
+    m_timeAxis->setWindowSizeMs (pre_ms, post_ms);
 
     repaint();
 }
@@ -243,38 +245,35 @@ void TriggeredAvgCanvas::pushEvent (const TriggerSource* source,
                                     uint16 streamId,
                                     int64 sample_number)
 {
-    display->pushEvent (source, streamId, sample_number);
+    m_grid->pushEvent (source, streamId, sample_number);
 }
 
-//void TriggeredAvgCanvas::pushSpike (const SpikeChannel* channel, int64 sample_number, int sortedId)
-//{
-//    display->pushSpike (channel, sample_number, sortedId);
-//}
 
 void TriggeredAvgCanvas::addContChannel (const ContinuousChannel* channel,
                                          const TriggerSource* source)
 {
-    display->addContChannel (channel, source);
+  // TODO: get poiinter to avgbuffer from processor
+  //processor->    m_grid->addContChannel (channel, source, );
 }
 
 void TriggeredAvgCanvas::updateColourForSource (const TriggerSource* source)
 {
-    display->updateColourForSource (source);
+    m_grid->updateColourForSource (source);
 }
 
 void TriggeredAvgCanvas::updateConditionName (const TriggerSource* source)
 {
-    display->updateConditionName (source);
+    m_grid->updateConditionName (source);
 }
 
-void TriggeredAvgCanvas::prepareToUpdate() { display->prepareToUpdate(); }
+void TriggeredAvgCanvas::prepareToUpdate() { m_grid->prepareToUpdate(); }
 
 void TriggeredAvgCanvas::saveCustomParametersToXml (XmlElement* xml)
 {
-    optionsBar->saveCustomParametersToXml (xml);
+    m_optionsBar->saveCustomParametersToXml (xml);
 }
 
 void TriggeredAvgCanvas::loadCustomParametersFromXml (XmlElement* xml)
 {
-    optionsBar->loadCustomParametersFromXml (xml);
+    m_optionsBar->loadCustomParametersFromXml (xml);
 }

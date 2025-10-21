@@ -371,6 +371,8 @@ void TriggeredAvgNode::handleTTLEvent (TTLEventPtr event)
 void TriggeredAvgNode::handleAsyncUpdate ()
 {
     // TODO: handle redrawring on message thread (here)
+    int tst = 0;
+    m_canvas->refresh();
 }
 
 
@@ -381,8 +383,9 @@ void TriggeredAvgNode::initializeThreads()
 
     if (getNumInputs() > 0 && m_ringBufferSize > 0)
     {
+        m_dataStore = std::make_unique<DataStore>();
         m_ringBuffer = std::make_unique<MultiChannelRingBuffer> (getNumInputs(), m_ringBufferSize);
-        m_dataCollector = std::make_unique<DataCollector> (this, m_ringBuffer.get());
+        m_dataCollector = std::make_unique<DataCollector> (this, m_ringBuffer.get(), m_dataStore.get());
         m_dataCollector->startThread (Thread::Priority::high);
         m_threadsInitialized.store (true);
     }
