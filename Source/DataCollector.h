@@ -22,6 +22,8 @@ struct CaptureRequest
 class DataStore
 {
 public:
+    void ResetAndSetSize (TriggerSource* source, int nChannels, int nSamples);
+
     MultiChannelAverageBuffer* getRefToAverageBufferForTriggerSource (TriggerSource* source)
     {
         // TODO:
@@ -108,6 +110,15 @@ public:
     int getNumTrials() const;
     int getNumChannels() const;
     int getNumSamples() const;
+    // resets and resizes the buffers
+    void setSize (int nChannels, int nSamples)
+    {
+        m_numChannels = nChannels;
+        m_numSamples = nSamples;
+        m_sumBuffer.setSize (nChannels, nSamples);
+        m_sumSquaresBuffer.setSize (nChannels, nSamples);
+        resetTrials(); 
+    }
 
 private:
     juce::AudioBuffer<float> m_sumBuffer;
