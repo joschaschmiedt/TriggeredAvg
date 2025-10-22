@@ -34,8 +34,6 @@ using namespace TriggeredAverage;
 TriggeredAvgNode::TriggeredAvgNode()
     : GenericProcessor ("Triggered Avg"),
       m_dataStore (std::make_unique<DataStore>()),
-      m_dataCollector (
-          std::make_unique<DataCollector> (this, m_ringBuffer.get(), m_dataStore.get())),
       // TODO: check if 10 seconds buffer is sufficient (lock-free?) and how to handle more than one stream
       m_canvas (nullptr),
       m_triggerSources (this), // 10 seconds buffer
@@ -316,7 +314,7 @@ void TriggeredAvgNode::initializeThreads()
         shutdownThreads();
 
     m_ringBuffer = std::make_unique<MultiChannelRingBuffer> (getNumInputs(), m_ringBufferSize);
-
+    m_dataCollector = std::make_unique<DataCollector> (this, m_ringBuffer.get(), m_dataStore.get());
     if (getNumInputs() > 0 && m_ringBufferSize > 0)
     {
         m_dataCollector->startThread (Thread::Priority::high);

@@ -63,7 +63,7 @@ SinglePlotPanel::SinglePlotPanel (const GridDisplay* display_,
     trialCounter = std::make_unique<Label> ("trial counter");
     trialCounter->setFont (font12pt);
     trialCounter->setJustificationType (Justification::centredTop);
-    auto trialCounterString = String ("Trials: ") + String (numTrials);
+    juce::String trialCounterString = String ("Trials: ") + String (numTrials);
     trialCounter->setText (trialCounterString, dontSendNotification);
     trialCounter->setColour (Label::textColourId, baseColour);
     addAndMakeVisible (trialCounter.get());
@@ -195,6 +195,8 @@ void SinglePlotPanel::paint (Graphics& g)
     {
         // Draw average trace
         auto avgBuffer = m_averageBuffer->getAverage();
+        auto nSamples = avgBuffer.getNumSamples();
+        auto nChannels = avgBuffer.getNumChannels();
 
         if (avgBuffer.getNumSamples() > 0 && avgBuffer.getNumChannels() > 0)
         {
@@ -238,7 +240,25 @@ void SinglePlotPanel::paint (Graphics& g)
     if (plotAllTraces)
     {
         // TODO: draw all traces
-        g.drawLine (-1.0f, 2.0f, 3.0f, -1.0f, 0.5f);
+        // draw a test line with random numbers across the range for now
+        g.setColour (baseColour);
+        Path allTracesPath;
+        const int numSamples = 100;
+        for (int i = 0; i < numSamples; ++i)
+        {
+            float x = (static_cast<float> (i) / static_cast<float> (numSamples - 1))
+                      * static_cast<float> (panelWidthPx);
+            float y = static_cast<float> (panelHeightPx)
+                      * (0.2f + 0.6f * static_cast<float> (std::rand()) / RAND_MAX);
+            if (i == 0)
+                allTracesPath.startNewSubPath (x, y);
+            else
+                allTracesPath.lineTo (x, y);
+        }
+        g.strokePath (allTracesPath, PathStrokeType (1.0f));
+
+
+
     }
 
     auto trialCounterString = String (numTrials);

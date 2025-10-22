@@ -6,7 +6,9 @@
 
 using namespace TriggeredAverage;
 
-void DataStore::ResetAndSetSize (TriggerSource* source, int nChannels, int nSamples)
+void DataStore::ResetAndResizeAverageBufferForTriggerSource (TriggerSource* source,
+                                                             int nChannels,
+                                                             int nSamples)
 {
     std::scoped_lock<std::recursive_mutex> lock (m_mutex);
     if (! source)
@@ -97,24 +99,32 @@ RingBufferReadResult DataCollector::processCaptureRequest (const CaptureRequest&
         request.triggerSample, request.preSamples, request.postSamples, m_collectBuffer);
     if (result == RingBufferReadResult::Success)
     {
-
         auto* avgBuffer =
             m_datastore->getRefToAverageBufferForTriggerSource (request.triggerSource);
         if (! avgBuffer)
         {
-            m_datastore->ResetAndSetSize (request.triggerSource,
-                                          m_collectBuffer.getNumChannels(),
-                                          m_collectBuffer.getNumSamples());
+            m_datastore->ResetAndResizeAverageBufferForTriggerSource (
+                request.triggerSource,
+                m_collectBuffer.getNumChannels(),
+                m_collectBuffer.getNumSamples());
             avgBuffer = m_datastore->getRefToAverageBufferForTriggerSource (request.triggerSource);
         }
 
         jassert (avgBuffer);
+
+        if (m_collectBuffer.getNumChannels() != avgBuffer->getNumChannels()
+            || m_collectBuffer.getNumSamples() != avgBuffer->getNumSamples())
+        {
+            m_datastore->ResetAndResizeAverageBufferForTriggerSource (
+                request.triggerSource,
+                m_collectBuffer.getNumChannels(),
+                m_collectBuffer.getNumSamples());
+        }
         jassert (m_collectBuffer.getNumSamples() == avgBuffer->getNumSamples());
         jassert (m_collectBuffer.getNumChannels() == avgBuffer->getNumChannels());
 
         m_datastore->getRefToAverageBufferForTriggerSource (request.triggerSource)
             ->addDataToAverageFromBuffer (m_collectBuffer);
-
     }
     return result;
 }

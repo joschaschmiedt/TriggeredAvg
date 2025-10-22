@@ -99,6 +99,7 @@ void OptionsBar::comboBoxChanged (ComboBox* comboBox)
 {
     if (comboBox == plotTypeSelector.get())
     {
+        auto id = comboBox->getSelectedId();
         display->setPlotType (static_cast<DisplayMode> (comboBox->getSelectedId()));
     }
     else if (comboBox == columnNumberSelector.get())

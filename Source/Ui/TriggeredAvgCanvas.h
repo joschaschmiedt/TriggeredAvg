@@ -14,10 +14,10 @@ class DataStore;
 
 enum class DisplayMode : std::uint8_t
 {
-    INDIVIDUAL_TRACES = 0,
-    AVERAGE_TRAGE = 1,
-    ALL_AND_AVERAGE = 2,
-    NUMBER_OF_MODES = 3,
+    INVALID = 0,
+    INDIVIDUAL_TRACES = 1,
+    AVERAGE_TRAGE = 2,
+    ALL_AND_AVERAGE = 3,
 };
 
 constexpr auto DisplayModeModeToString (DisplayMode mode) -> const char*
@@ -25,6 +25,8 @@ constexpr auto DisplayModeModeToString (DisplayMode mode) -> const char*
     // using enum DisplayMode;
     switch (mode)
     {
+        case DisplayMode::INVALID:
+            return "Invalid";
         case DisplayMode::INDIVIDUAL_TRACES:
             return "All traces";
         case DisplayMode::AVERAGE_TRAGE:

@@ -22,7 +22,7 @@ struct CaptureRequest
 class DataStore
 {
 public:
-    void ResetAndSetSize (TriggerSource* source, int nChannels, int nSamples);
+    void ResetAndResizeAverageBufferForTriggerSource (TriggerSource* source, int nChannels, int nSamples);
 
     MultiChannelAverageBuffer* getRefToAverageBufferForTriggerSource (TriggerSource* source)
     {

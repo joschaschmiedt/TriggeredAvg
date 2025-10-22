@@ -63,7 +63,7 @@ void TriggeredAvgEditor::updateSettings()
 
     for (auto source : proc->getTriggerSources().getAll())
     {
-        store->ResetAndSetSize (source, nChannels, nSamples);
+        store->ResetAndResizeAverageBufferForTriggerSource (source, nChannels, nSamples);
         for (int i = 0; i < proc->getTotalContinuousChannels(); i++)
         {
             const ContinuousChannel* channel = proc->getContinuousChannel (i);
