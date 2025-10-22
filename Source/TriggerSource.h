@@ -71,6 +71,8 @@ public:
     TriggerSources (TriggeredAvgNode* parentProcessor) : m_parentProcessor (parentProcessor) {}
 
     juce::Array<TriggerSource*> getAll();
+    TriggerSource* getByIndex (int index) const;
+    int getIndexOf (const TriggerSource* source) const { return m_triggerSources.indexOf (source); }
     TriggerSource* addTriggerSource (int line, TriggerType type, int index = -1);
     TriggerSource* getLastAddedTriggerSource() const { return m_currentTriggerSource; }
     void removeTriggerSources (Array<TriggerSource*> sources);
@@ -78,11 +80,7 @@ public:
 
     void setTriggerSourceName (TriggerSource* source, String name, bool updateEditor = true);
     void setTriggerSourceLine (TriggerSource* source, int line, bool updateEditor = true);
-
-    /** Sets trigger source colour */
     void setTriggerSourceColour (TriggerSource* source, Colour colour, bool updateEditor = true);
-
-    /** Sets trigger source type */
     void setTriggerSourceTriggerType (TriggerSource* source,
                                       TriggerType type,
                                       bool updateEditor = true);

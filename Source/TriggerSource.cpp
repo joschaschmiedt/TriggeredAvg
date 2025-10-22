@@ -40,6 +40,12 @@ Array<TriggerSource*> TriggerSources::getAll()
         sources.add (source);
     return sources;
 }
+TriggerSource* TriggerSources::getByIndex (int index) const
+{
+    if (index < 0)
+        return nullptr;
+    return m_triggerSources[index];
+}
 
 TriggerSource* TriggerSources::addTriggerSource (int line, TriggerType type, int index)
 {

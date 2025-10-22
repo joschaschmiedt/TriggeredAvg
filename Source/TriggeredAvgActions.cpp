@@ -10,7 +10,7 @@ AddTriggerConditions::AddTriggerConditions (TriggeredAverage::TriggeredAvgNode* 
                                             TriggeredAverage::TriggerType type_)
     : ProcessorAction ("AddTriggerConditions"),
       processorNode (processor_),
-      triggerLines (lines),
+      triggerLines (std::move (lines)),
       type (type_)
 {
     triggerSources.clear();
@@ -163,7 +163,7 @@ RenameTriggerSource::RenameTriggerSource (TriggeredAvgNode* processor_,
       triggerSourcesToRename (source_),
       newName (newName_)
 {
-    triggerIndex = processorNode->getTriggerSources().getAll().indexOf (triggerSourcesToRename);
+    triggerIndex = processorNode->getTriggerSources().getIndexOf (triggerSourcesToRename);
     oldName = triggerSourcesToRename->name;
 }
 
@@ -207,7 +207,7 @@ ChangeTriggerTTLLine::ChangeTriggerTTLLine (TriggeredAvgNode* processor_,
       triggerSource (source_),
       newLine (newLine_)
 {
-    triggerIndex = processorNode->getTriggerSources().getAll().indexOf (triggerSource);
+    triggerIndex = processorNode->getTriggerSources().getIndexOf (triggerSource);
     oldLine = triggerSource->line;
 }
 
@@ -234,12 +234,10 @@ bool ChangeTriggerTTLLine::perform()
 
 bool ChangeTriggerTTLLine::undo()
 {
-    auto source = processorNode->getTriggerSources().getAll()[triggerIndex];
+    auto source = processorNode->getTriggerSources().getByIndex (triggerIndex);
     if (source != nullptr)
     {
         processorNode->getTriggerSources().setTriggerSourceLine (source, oldLine);
-        if (auto* editor = dynamic_cast<TriggeredAvgEditor*> (processorNode->getEditor()))
-            editor->updateConditionName (source);
         CoreServices::sendStatusMessage ("Changed trigger condition line from " + String (newLine)
                                          + " to " + String (oldLine));
     }
@@ -255,7 +253,7 @@ ChangeTriggerType::ChangeTriggerType (TriggeredAvgNode* processor_,
       triggerSource (source_),
       newType (newType_)
 {
-    triggerIndex = processorNode->getTriggerSources().getAll().indexOf (triggerSource);
+    triggerIndex = processorNode->getTriggerSources().getIndexOf (triggerSource);
     oldType = triggerSource->type;
 }
 
@@ -266,7 +264,7 @@ void ChangeTriggerType::restoreOwner (GenericProcessor* processor)
 
 bool ChangeTriggerType::perform()
 {
-    auto source = processorNode->getTriggerSources().getAll()[triggerIndex];
+    auto source = processorNode->getTriggerSources().getByIndex (triggerIndex);
     if (source != nullptr)
     {
         processorNode->getTriggerSources().setTriggerSourceTriggerType (source, newType);
@@ -281,7 +279,7 @@ bool ChangeTriggerType::perform()
 
 bool ChangeTriggerType::undo()
 {
-    auto source = processorNode->getTriggerSources().getAll()[triggerIndex];
+    auto source = processorNode->getTriggerSources().getByIndex (triggerIndex);
     if (source != nullptr)
     {
         processorNode->getTriggerSources().setTriggerSourceTriggerType (source, oldType);
