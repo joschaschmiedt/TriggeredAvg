@@ -29,7 +29,6 @@
 #include "Ui/TriggeredAvgCanvas.h"
 #include "Ui/TriggeredAvgEditor.h"
 
-
 using namespace TriggeredAverage;
 
 TriggeredAvgNode::TriggeredAvgNode()
@@ -88,7 +87,7 @@ TriggeredAvgNode::TriggeredAvgNode()
                      3);
 
     // Create a default trigger source for any line
-    addTriggerSource (-1, TriggerType::TTL_TRIGGER);
+    m_triggerSources.addTriggerSource (-1, TriggerType::TTL_TRIGGER);
 }
 
 TriggeredAvgNode::~TriggeredAvgNode() { shutdownThreads(); }
@@ -109,21 +108,21 @@ void TriggeredAvgNode::parameterValueChanged (Parameter* param)
     }
     else if (param->getName().equalsIgnoreCase (trigger_line))
     {
-        if (m_currentTriggerSource != nullptr)
+        if (auto source = m_triggerSources.getLastAddedTriggerSource())
         {
-            m_currentTriggerSource->line = (int) param->getValue();
+            source->line = (int) param->getValue();
         }
     }
     else if (param->getName().equalsIgnoreCase (trigger_type))
     {
-        if (m_currentTriggerSource != nullptr)
+        if (auto source = m_triggerSources.getLastAddedTriggerSource())
         {
-            m_currentTriggerSource->type = (TriggerType) (int) param->getValue();
+            source->type = (TriggerType) (int) param->getValue();
 
-            if (m_currentTriggerSource->type == TriggerType::TTL_TRIGGER)
-                m_currentTriggerSource->canTrigger = true;
+            if (source->type == TriggerType::TTL_TRIGGER)
+                source->canTrigger = true;
             else
-                m_currentTriggerSource->canTrigger = false;
+                source->canTrigger = false;
         }
     }
     else if (param->getName().equalsIgnoreCase (ParameterNames::pre_ms))
@@ -169,104 +168,35 @@ float TriggeredAvgNode::getPreWindowSizeMs() const
 {
     return getParameter (ParameterNames::pre_ms)->getValue();
 }
+int TriggeredAvgNode::getNumberOfPreSamples() const
+{
+    const float sampleRate = getDataStreams()[m_dataStreamIndex]->getSampleRate();
+    const int preSamples = static_cast<int> (sampleRate * (getPreWindowSizeMs() / 1000.0f));
+    return preSamples;
+}
+int TriggeredAvgNode::getNumberOfPostSamplesIncludingTrigger() const
+{
+    const float sampleRate = getDataStreams()[m_dataStreamIndex]->getSampleRate();
+    const int postSamples = static_cast<int> (sampleRate * (getPostWindowSizeMs() / 1000.0f));
+    return postSamples;
+}
+int TriggeredAvgNode::getNumberOfSamples() const
+{
+    const float sampleRate = getDataStreams()[m_dataStreamIndex]->getSampleRate();
+    const int preSamples = static_cast<int> (sampleRate * (getPreWindowSizeMs() / 1000.0f));
+    const int postSamples = static_cast<int> (sampleRate * (getPostWindowSizeMs() / 1000.0f));
+    const int totalSamples = preSamples + postSamples;
+    return totalSamples;
+}
 
 float TriggeredAvgNode::getPostWindowSizeMs() const
 {
     return getParameter (ParameterNames::post_ms)->getValue();
 }
 
-Array<TriggerSource*> TriggeredAvgNode::getTriggerSources()
-{
-    Array<TriggerSource*> sources;
-    for (auto source : m_triggerSources)
-        sources.add (source);
-    return sources;
-}
-
-TriggerSource* TriggeredAvgNode::addTriggerSource (int line, TriggerType type, int index)
-{
-    String name = "Condition " + String (m_nextConditionIndex++);
-    name = ensureUniqueTriggerSourceName (name);
-
-    TriggerSource* source = new TriggerSource (this, name, line, type);
-
-    if (index == -1)
-        m_triggerSources.add (source);
-    else
-        m_triggerSources.insert (index, source);
-
-    m_currentTriggerSource = source;
-    getParameter ("trigger_type")->setNextValue ((int) type, false);
-
-    return source;
-}
-
-void TriggeredAvgNode::removeTriggerSources (Array<TriggerSource*> sources)
-{
-    for (auto source : sources)
-    {
-        m_triggerSources.removeObject (source);
-    }
-}
-
-void TriggeredAvgNode::removeTriggerSource (int indexToRemove)
-{
-    if (indexToRemove >= 0 && indexToRemove < m_triggerSources.size())
-    {
-        TriggerSource* source = m_triggerSources[indexToRemove];
-        m_triggerSources.remove (indexToRemove);
-    }
-}
-
-String TriggeredAvgNode::ensureUniqueTriggerSourceName (String name)
-{
-    Array<String> existingNames;
-    for (auto source : m_triggerSources)
-        existingNames.add (source->name);
-
-    if (! existingNames.contains (name))
-        return name;
-
-    int suffix = 2;
-    while (existingNames.contains (name + " " + String (suffix)))
-        suffix++;
-
-    return name + " " + String (suffix);
-}
-
-void TriggeredAvgNode::setTriggerSourceName (TriggerSource* source, String name, bool updateEditor)
-{
-    source->name = ensureUniqueTriggerSourceName (name);
-}
-
-void TriggeredAvgNode::setTriggerSourceLine (TriggerSource* source, int line, bool updateEditor)
-{
-    source->line = line;
-    source->colour = TriggerSource::getColourForLine (line);
-}
-
-void TriggeredAvgNode::setTriggerSourceColour (TriggerSource* source,
-                                               Colour colour,
-                                               bool updateEditor)
-{
-    source->colour = colour;
-}
-
-void TriggeredAvgNode::setTriggerSourceTriggerType (TriggerSource* source,
-                                                    TriggerType type,
-                                                    bool updateEditor)
-{
-    source->type = type;
-
-    if (source->type == TriggerType::TTL_TRIGGER)
-        source->canTrigger = true;
-    else
-        source->canTrigger = false;
-}
-
 void TriggeredAvgNode::saveCustomParametersToXml (XmlElement* xml)
 {
-    for (auto source : m_triggerSources)
+    for (auto source : m_triggerSources.getAll())
     {
         XmlElement* sourceXml = xml->createNewChildElement ("TRIGGERSOURCE");
         sourceXml->setAttribute ("name", source->name);
@@ -279,7 +209,7 @@ void TriggeredAvgNode::saveCustomParametersToXml (XmlElement* xml)
 void TriggeredAvgNode::loadCustomParametersFromXml (XmlElement* xml)
 {
     m_triggerSources.clear();
-    m_nextConditionIndex = 1;
+    //m_nextConditionIndex = 1;
 
     for (auto sourceXml : xml->getChildIterator())
     {
@@ -292,7 +222,7 @@ void TriggeredAvgNode::loadCustomParametersFromXml (XmlElement* xml)
             String savedColour = sourceXml->getStringAttribute ("colour", "");
 
             TriggerSource* source =
-                addTriggerSource (savedLine, static_cast<TriggerType> (savedType));
+                m_triggerSources.addTriggerSource (savedLine, static_cast<TriggerType> (savedType));
 
             if (savedName.isNotEmpty())
                 source->name = savedName;
@@ -307,7 +237,7 @@ void TriggeredAvgNode::handleBroadcastMessage (const String& message, const int6
 {
     if (m_dataCollector && m_threadsInitialized.load())
     {
-        for (auto source : m_triggerSources)
+        for (auto source : m_triggerSources.getAll())
         {
             if (message.equalsIgnoreCase (source->name))
             {
@@ -350,7 +280,7 @@ void TriggeredAvgNode::handleTTLEvent (TTLEventPtr event)
 {
     if (m_dataCollector && m_threadsInitialized.load())
     {
-        for (auto source : m_triggerSources)
+        for (auto source : m_triggerSources.getAll())
         {
             if (event->getLine() == source->line && event->getState() && source->canTrigger)
             {

@@ -22,10 +22,10 @@
 
 */
 #include "PopupConfigurationWindow.h"
+#include "TriggerSource.h"
 #include "TriggeredAvgActions.h"
 #include "TriggeredAvgEditor.h"
 #include "TriggeredAvgNode.h"
-#include "TriggerSource.h"
 
 using namespace TriggeredAverage;
 
@@ -46,7 +46,7 @@ void EditableTextCustomComponent::labelTextChanged (Label* label)
 {
     String candidateName = label->getText();
 
-    String newName = processor->ensureUniqueTriggerSourceName (candidateName);
+    String newName = processor->getTriggerSources().ensureUniqueTriggerSourceName (candidateName);
 
     label->setText (newName, dontSendNotification);
 
@@ -218,7 +218,7 @@ void ColourDisplayCustomComponent::changeListenerCallback (ChangeBroadcaster* co
 
     if (cs != nullptr)
     {
-        source->processor->setTriggerSourceColour (source, cs->getCurrentColour());
+        TriggerSources::setTriggerSourceColour (source, cs->getCurrentColour());
 
         repaint();
     }
@@ -789,7 +789,7 @@ void PopupConfigurationWindow::updatePopup()
     assert (psthProcessor);
     if (! psthProcessor)
         return;
-    update (psthProcessor->getTriggerSources());
+    update (psthProcessor->getTriggerSources().getAll());
 }
 
 bool PopupConfigurationWindow::keyPressed (const KeyPress& key)

@@ -61,7 +61,7 @@ void TriggeredAvgEditor::updateSettings()
     const int nChannels = proc->getTotalContinuousChannels();
     const int nSamples = proc->getNumberOfSamples();
 
-    for (auto source : proc->getTriggerSources())
+    for (auto source : proc->getTriggerSources().getAll())
     {
         store->ResetAndSetSize (source, nChannels, nSamples);
         for (int i = 0; i < proc->getTotalContinuousChannels(); i++)
@@ -114,7 +114,7 @@ void TriggeredAvgEditor::buttonClicked (Button* button)
     {
         TriggeredAvgNode* proc = (TriggeredAvgNode*) getProcessor();
 
-        Array<TriggerSource*> triggerLines = proc->getTriggerSources();
+        Array<TriggerSource*> triggerLines = proc->getTriggerSources().getAll();
         LOGD (triggerLines.size(), " trigger sources found.");
 
         currentConfigWindow =
@@ -139,7 +139,7 @@ void TriggeredAvgEditor::addTriggerSources (Popup::PopupConfigurationWindow* win
     CoreServices::getUndoManager()->perform ((UndoableAction*) action);
 
     if (window != nullptr)
-        window->update (proc->getTriggerSources());
+        window->update (proc->getTriggerSources().getAll());
 }
 
 void TriggeredAvgEditor::removeTriggerSources (
@@ -154,5 +154,5 @@ void TriggeredAvgEditor::removeTriggerSources (
     CoreServices::getUndoManager()->perform ((UndoableAction*) action);
 
     if (window != nullptr)
-        window->update (proc->getTriggerSources());
+        window->update (proc->getTriggerSources().getAll());
 }

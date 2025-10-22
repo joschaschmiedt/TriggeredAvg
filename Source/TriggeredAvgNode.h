@@ -23,6 +23,8 @@
 */
 #pragma once
 
+#include "TriggerSource.h"
+
 #include <ProcessorHeaders.h>
 #include <atomic>
 #include <memory>
@@ -62,53 +64,23 @@ public:
     void prepareToPlay (double sampleRate, int maximumExpectedSamplesPerBlock) override;
 
     // parameters
-    float getPreWindowSizeMs() const;
-    int getNumberOfPreSamples() const
-    {
-        const float sampleRate = getDataStreams()[m_dataStreamIndex]->getSampleRate();
-        const int preSamples = static_cast<int> (sampleRate * (getPreWindowSizeMs() / 1000.0f));
-        return preSamples;
-    }
-    int getNumberOfPostSamplesIncludingTrigger() const
-    {
-        const float sampleRate = getDataStreams()[m_dataStreamIndex]->getSampleRate();
-        const int postSamples = static_cast<int> (sampleRate * (getPostWindowSizeMs() / 1000.0f));
-        return postSamples;
-    }
-    int getNumberOfSamples() const
-    {
-        const float sampleRate = getDataStreams()[m_dataStreamIndex]->getSampleRate();
-        const int preSamples = static_cast<int> (sampleRate * (getPreWindowSizeMs() / 1000.0f));
-        const int postSamples = static_cast<int> (sampleRate * (getPostWindowSizeMs() / 1000.0f));
-        const int totalSamples = preSamples + postSamples;
-        return totalSamples;
-    }
-    float getPostWindowSizeMs() const;
     int getMaxTrials() const { return (int) getParameter (ParameterNames::max_trials)->getValue(); }
+    float getPreWindowSizeMs() const;
+    float getPostWindowSizeMs() const;
+
+
+    int getNumberOfPreSamples() const;
+    int getNumberOfPostSamplesIncludingTrigger() const;
+    int getNumberOfSamples() const;
 
     // trigger sources
-    Array<TriggerSource*> getTriggerSources();
-    TriggerSource* addTriggerSource (int line, TriggerType type, int index = -1);
-    void removeTriggerSources (Array<TriggerSource*> sources);
-    void removeTriggerSource (int indexToRemove);
+    TriggerSources& getTriggerSources() { return m_triggerSources; }
 
-    void setTriggerSourceName (TriggerSource* source, String name, bool updateEditor = true);
-    void setTriggerSourceLine (TriggerSource* source, int line, bool updateEditor = true);
-
-    /** Sets trigger source colour */
-    void setTriggerSourceColour (TriggerSource* source, Colour colour, bool updateEditor = true);
-
-    /** Sets trigger source type */
-    void setTriggerSourceTriggerType (TriggerSource* source,
-                                      TriggerType type,
-                                      bool updateEditor = true);
-
-    DataStore* getDataStore() { return m_dataStore.get(); }
+    TriggeredAverage::DataStore* getDataStore() { return m_dataStore.get(); }
 
     void setCanvas (TriggeredAvgCanvas* canvas) { m_canvas = canvas; }
 
-    String ensureUniqueTriggerSourceName (String name);
-    int getNextConditionIndex() const { return m_nextConditionIndex; }
+    int getNextConditionIndex() const { return m_triggerSources.getNextConditionIndex(); }
 
     /** Saves trigger source parameters */
     void saveCustomParametersToXml (XmlElement* xml) override;
@@ -132,7 +104,6 @@ private:
 
     void handleTTLEvent (TTLEventPtr event) override;
     void handleAsyncUpdate() override;
-    ;
 
     void initializeThreads();
     void shutdownThreads();
@@ -142,9 +113,7 @@ private:
     std::unique_ptr<DataCollector> m_dataCollector;
     TriggeredAvgCanvas* m_canvas;
 
-    OwnedArray<TriggerSource> m_triggerSources;
-    int m_nextConditionIndex = 1;
-    TriggerSource* m_currentTriggerSource = nullptr;
+    TriggerSources m_triggerSources;
 
     // Buffer parameters
     int m_ringBufferSize;

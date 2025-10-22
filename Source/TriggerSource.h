@@ -38,8 +38,41 @@ public:
     juce::String name;
     int line;
     TriggerType type;
-    TriggeredAvgNode* processor;
     bool canTrigger;
     juce::Colour colour;
+    TriggeredAvgNode* processor;
 };
+
+// Container class for managing multiple TriggerSource objects
+class TriggerSources
+{
+public:
+    juce::Array<TriggerSource*> getAll();
+    TriggerSource* addTriggerSource (int line, TriggerType type, int index = -1);
+    TriggerSource* getLastAddedTriggerSource() const { return m_currentTriggerSource; }
+    void removeTriggerSources (Array<TriggerSource*> sources);
+    void removeTriggerSource (int indexToRemove);
+
+    void setTriggerSourceName (TriggerSource* source, String name, bool updateEditor = true);
+    static void setTriggerSourceLine (TriggerSource* source, int line, bool updateEditor = true);
+
+    /** Sets trigger source colour */
+    static void
+        setTriggerSourceColour (TriggerSource* source, Colour colour, bool updateEditor = true);
+
+    /** Sets trigger source type */
+    static void setTriggerSourceTriggerType (TriggerSource* source,
+                                             TriggerType type,
+                                             bool updateEditor = true);
+    String ensureUniqueTriggerSourceName (String name);
+    int getNextConditionIndex() const { return m_nextConditionIndex; }
+    void clear() { m_triggerSources.clear(); }
+    size_t size() const { return m_triggerSources.size(); }
+
+private:
+    OwnedArray<TriggerSource> m_triggerSources;
+    int m_nextConditionIndex = 1;
+    TriggerSource* m_currentTriggerSource = nullptr;
+};
+
 } // namespace TriggeredAverage

@@ -31,13 +31,13 @@ bool AddTriggerConditions::perform()
     for (int i = 0; i < triggerLines.size(); i++)
     {
         TriggerSource* source =
-            processorNode->addTriggerSource (triggerLines[i], type, triggerIndices[i]);
+            processorNode->getTriggerSources().addTriggerSource (triggerLines[i], type, triggerIndices[i]);
         triggerSources.add (source);
     }
 
     if (triggerNames.isEmpty())
     {
-        auto allSources = processorNode->getTriggerSources();
+        auto allSources = processorNode->getTriggerSources().getAll();
         for (int i = 0; i < triggerSources.size(); i++)
         {
             triggerNames.add (triggerSources[i]->name);
@@ -67,7 +67,7 @@ bool AddTriggerConditions::undo()
         triggerSources.clear();
 
         for (int i = 0; i < triggerLines.size(); i++)
-            processorNode->removeTriggerSource (triggerIndices[i]);
+            processorNode->getTriggerSources().removeTriggerSource (triggerIndices[i]);
 
         processorNode->getEditor()->updateSettings();
         CoreServices::sendStatusMessage ("Removed " + String (triggerLines.size())
@@ -85,7 +85,7 @@ RemoveTriggerConditions::RemoveTriggerConditions (TriggeredAvgNode* processor_,
 {
     settings = std::make_unique<XmlElement> ("TRIGGER_SOURCES");
 
-    auto allSources = processorNode->getTriggerSources();
+    auto allSources = processorNode->getTriggerSources().getAll();
     for (auto source : triggerSourcesToRemove)
     {
         XmlElement* sourceXml = settings->createNewChildElement ("SOURCE");
@@ -111,7 +111,7 @@ bool RemoveTriggerConditions::perform()
         for (auto* sourceXml : settings->getChildIterator())
         {
             int indexToRemove = sourceXml->getIntAttribute ("index", -1);
-            processorNode->removeTriggerSource (indexToRemove);
+            processorNode->getTriggerSources().removeTriggerSource (indexToRemove);
         }
 
         processorNode->registerUndoableAction (processorNode->getNodeId(), this);
@@ -138,7 +138,7 @@ bool RemoveTriggerConditions::undo()
         int savedIndex = sourceXml->getIntAttribute ("index", -1);
 
         TriggerSource* source =
-            processorNode->addTriggerSource (savedLine, (TriggerType) savedType, savedIndex);
+            processorNode->getTriggerSources().addTriggerSource (savedLine, (TriggerType) savedType, savedIndex);
 
         if (savedName.isNotEmpty())
             source->name = savedName;
@@ -163,7 +163,7 @@ RenameTriggerSource::RenameTriggerSource (TriggeredAvgNode* processor_,
       triggerSourcesToRename (source_),
       newName (newName_)
 {
-    triggerIndex = processorNode->getTriggerSources().indexOf (triggerSourcesToRename);
+    triggerIndex = processorNode->getTriggerSources().getAll().indexOf (triggerSourcesToRename);
     oldName = triggerSourcesToRename->name;
 }
 
@@ -175,10 +175,10 @@ void RenameTriggerSource::restoreOwner (GenericProcessor* processor)
 
 bool RenameTriggerSource::perform()
 {
-    auto source = processorNode->getTriggerSources()[triggerIndex];
+    auto source = processorNode->getTriggerSources().getAll()[triggerIndex];
     if (source != nullptr)
     {
-        processorNode->setTriggerSourceName (source, newName);
+        processorNode->getTriggerSources().setTriggerSourceName (source, newName);
         processorNode->registerUndoableAction (processorNode->getNodeId(), this);
         CoreServices::sendStatusMessage ("Renamed trigger condition from " + oldName + " to "
                                          + newName);
@@ -189,10 +189,10 @@ bool RenameTriggerSource::perform()
 
 bool RenameTriggerSource::undo()
 {
-    auto source = processorNode->getTriggerSources()[triggerIndex];
+    auto source = processorNode->getTriggerSources().getAll()[triggerIndex];
     if (source != nullptr)
     {
-        processorNode->setTriggerSourceName (source, oldName);
+        processorNode->getTriggerSources().setTriggerSourceName (source, oldName);
         CoreServices::sendStatusMessage ("Renamed trigger condition from " + newName + " to "
                                          + oldName);
     }
@@ -208,7 +208,7 @@ ChangeTriggerTTLLine::ChangeTriggerTTLLine (TriggeredAvgNode* processor_,
       triggerSource (source_),
       newLine (newLine_)
 {
-    triggerIndex = processorNode->getTriggerSources().indexOf (triggerSource);
+    triggerIndex = processorNode->getTriggerSources().getAll().indexOf (triggerSource);
     oldLine = triggerSource->line;
 }
 
@@ -220,10 +220,10 @@ void ChangeTriggerTTLLine::restoreOwner (GenericProcessor* processor)
 
 bool ChangeTriggerTTLLine::perform()
 {
-    auto source = processorNode->getTriggerSources()[triggerIndex];
+    auto source = processorNode->getTriggerSources().getAll()[triggerIndex];
     if (source != nullptr)
     {
-        processorNode->setTriggerSourceLine (source, newLine);
+        processorNode->getTriggerSources().setTriggerSourceLine (source, newLine);
         processorNode->registerUndoableAction (processorNode->getNodeId(), this);
         CoreServices::sendStatusMessage ("Changed trigger condition line from " + String (oldLine)
                                          + " to " + String (newLine));
@@ -234,10 +234,10 @@ bool ChangeTriggerTTLLine::perform()
 
 bool ChangeTriggerTTLLine::undo()
 {
-    auto source = processorNode->getTriggerSources()[triggerIndex];
+    auto source = processorNode->getTriggerSources().getAll()[triggerIndex];
     if (source != nullptr)
     {
-        processorNode->setTriggerSourceLine (source, oldLine);
+        processorNode->getTriggerSources().setTriggerSourceLine (source, oldLine);
         CoreServices::sendStatusMessage ("Changed trigger condition line from " + String (newLine)
                                          + " to " + String (oldLine));
     }
@@ -253,7 +253,7 @@ ChangeTriggerType::ChangeTriggerType (TriggeredAvgNode* processor_,
       triggerSource (source_),
       newType (newType_)
 {
-    triggerIndex = processorNode->getTriggerSources().indexOf (triggerSource);
+    triggerIndex = processorNode->getTriggerSources().getAll().indexOf (triggerSource);
     oldType = triggerSource->type;
 }
 
@@ -264,10 +264,10 @@ void ChangeTriggerType::restoreOwner (GenericProcessor* processor)
 
 bool ChangeTriggerType::perform()
 {
-    auto source = processorNode->getTriggerSources()[triggerIndex];
+    auto source = processorNode->getTriggerSources().getAll()[triggerIndex];
     if (source != nullptr)
     {
-        processorNode->setTriggerSourceTriggerType (source, newType);
+        processorNode->getTriggerSources().setTriggerSourceTriggerType (source, newType);
         processorNode->registerUndoableAction (processorNode->getNodeId(), this);
         CoreServices::sendStatusMessage ("Changed trigger condition type from "
                                          + String { TriggerTypeToString (oldType) } + " to "
@@ -279,10 +279,10 @@ bool ChangeTriggerType::perform()
 
 bool ChangeTriggerType::undo()
 {
-    auto source = processorNode->getTriggerSources()[triggerIndex];
+    auto source = processorNode->getTriggerSources().getAll()[triggerIndex];
     if (source != nullptr)
     {
-        processorNode->setTriggerSourceTriggerType (source, oldType);
+        processorNode->getTriggerSources().setTriggerSourceTriggerType (source, oldType);
         CoreServices::sendStatusMessage ("Changed trigger condition line from "
                                          + String { TriggerTypeToString (newType) } + " to "
 
