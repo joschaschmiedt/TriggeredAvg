@@ -54,6 +54,14 @@ target_sources(${PLUGIN_NAME}
     ${TRIGGERED_AVG_SOURCES}
 )
 
+# Organize files into folders in Visual Studio Solution Explorer
+source_group(TREE ${TRIGGERED_AVG_SOURCE_PATH}
+             PREFIX "Source Files"
+             FILES ${TRIGGERED_AVG_SOURCES})
+source_group(TREE ${TRIGGERED_AVG_SOURCE_PATH}
+             PREFIX "Header Files"
+             FILES ${TRIGGERED_AVG_HEADERS})
+
 target_compile_definitions(${PLUGIN_NAME}
     PRIVATE
         OEPLUGIN

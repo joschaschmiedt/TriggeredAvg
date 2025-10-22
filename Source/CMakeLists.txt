@@ -1,29 +1,29 @@
 set(TRIGGERED_AVG_SOURCES_RELATIVE
     DataCollector.cpp
-    GridDisplay.cpp
     MultiChannelRingBuffer.cpp
     OpenEphysLib.cpp
-    PopupConfigurationWindow.cpp
-    SinglePlotPanel.cpp
-    TimeAxis.cpp
-    TriggerSource.cpp
     TriggeredAvgActions.cpp
-    TriggeredAvgCanvas.cpp
-    TriggeredAvgEditor.cpp
     TriggeredAvgNode.cpp
+    TriggerSource.cpp
+    Ui/GridDisplay.cpp
+    Ui/PopupConfigurationWindow.cpp
+    Ui/SinglePlotPanel.cpp
+    Ui/TimeAxis.cpp
+    Ui/TriggeredAvgCanvas.cpp
+    Ui/TriggeredAvgEditor.cpp
 )
 
 set(TRIGGERED_AVG_HEADERS_RELATIVE
     DataCollector.h
-    GridDisplay.h
     MultiChannelRingBuffer.h
-    SinglePlotPanel.h
-    TimeAxis.h
-    TriggerSource.h
     TriggeredAvgActions.h
-    TriggeredAvgCanvas.h
-    TriggeredAvgEditor.h
     TriggeredAvgNode.h
+    TriggerSource.h
+    Ui/GridDisplay.h
+    Ui/SinglePlotPanel.h
+    Ui/TimeAxis.h
+    Ui/TriggeredAvgCanvas.h
+    Ui/TriggeredAvgEditor.h
 )
 
 # Convert to full paths

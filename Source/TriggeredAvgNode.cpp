@@ -26,8 +26,9 @@
 #include "DataCollector.h"
 #include "MultiChannelRingBuffer.h"
 #include "TriggerSource.h"
-#include "TriggeredAvgCanvas.h"
-#include "TriggeredAvgEditor.h"
+#include "Ui/TriggeredAvgCanvas.h"
+#include "Ui/TriggeredAvgEditor.h"
+
 
 using namespace TriggeredAverage;
 

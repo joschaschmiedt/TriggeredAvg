@@ -1,5 +1,5 @@
 #include "TriggeredAvgActions.h"
-#include "TriggeredAvgEditor.h"
+#include "Ui/TriggeredAvgEditor.h"
 #include "TriggeredAvgNode.h"
 #include "TriggerSource.h"
 
