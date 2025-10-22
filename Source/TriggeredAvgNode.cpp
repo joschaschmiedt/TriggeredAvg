@@ -33,14 +33,15 @@ using namespace TriggeredAverage;
 
 TriggeredAvgNode::TriggeredAvgNode()
     : GenericProcessor ("Triggered Avg"),
-      m_canvas (nullptr),
-      // TODO: check if 10 seconds buffer is sufficient (lock-free?) and how to handle more than one stream
-      m_ringBufferSize (
-          static_cast<int> (GenericProcessor::getSampleRate (m_dataStreamIndex) * 10.0f)),
-      m_threadsInitialized (false), // 10 seconds buffer
       m_dataStore (std::make_unique<DataStore>()),
       m_dataCollector (
-          std::make_unique<DataCollector> (this, m_ringBuffer.get(), m_dataStore.get()))
+          std::make_unique<DataCollector> (this, m_ringBuffer.get(), m_dataStore.get())),
+      // TODO: check if 10 seconds buffer is sufficient (lock-free?) and how to handle more than one stream
+      m_canvas (nullptr),
+      m_triggerSources (this), // 10 seconds buffer
+      m_ringBufferSize (
+          static_cast<int> (GenericProcessor::getSampleRate (m_dataStreamIndex) * 10.0f)),
+      m_threadsInitialized (false)
 {
     addFloatParameter (Parameter::PROCESSOR_SCOPE,
                        ParameterNames::pre_ms,

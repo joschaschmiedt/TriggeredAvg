@@ -47,6 +47,29 @@ public:
 class TriggerSources
 {
 public:
+    TriggerSources() = delete;
+    TriggerSources (const TriggerSources&) = delete;
+    TriggerSources (TriggerSources&& other) noexcept
+    {
+        m_parentProcessor = std::move (other.m_parentProcessor);
+        m_triggerSources = std::move (other.m_triggerSources);
+        m_nextConditionIndex = other.m_nextConditionIndex;
+        m_currentTriggerSource = other.m_currentTriggerSource;
+    }
+    TriggerSources& operator= (const TriggerSources&) = delete;
+    TriggerSources& operator= (TriggerSources&& other) noexcept
+    {
+        if (this != &other)
+        {
+            m_parentProcessor = std::move (other.m_parentProcessor);
+            m_triggerSources = std::move (other.m_triggerSources);
+            m_nextConditionIndex = other.m_nextConditionIndex;
+            m_currentTriggerSource = other.m_currentTriggerSource;
+        }
+        return *this;
+    }
+    TriggerSources (TriggeredAvgNode* parentProcessor) : m_parentProcessor (parentProcessor) {}
+
     juce::Array<TriggerSource*> getAll();
     TriggerSource* addTriggerSource (int line, TriggerType type, int index = -1);
     TriggerSource* getLastAddedTriggerSource() const { return m_currentTriggerSource; }
@@ -54,22 +77,25 @@ public:
     void removeTriggerSource (int indexToRemove);
 
     void setTriggerSourceName (TriggerSource* source, String name, bool updateEditor = true);
-    static void setTriggerSourceLine (TriggerSource* source, int line, bool updateEditor = true);
+    void setTriggerSourceLine (TriggerSource* source, int line, bool updateEditor = true);
 
     /** Sets trigger source colour */
-    static void
-        setTriggerSourceColour (TriggerSource* source, Colour colour, bool updateEditor = true);
+    void setTriggerSourceColour (TriggerSource* source, Colour colour, bool updateEditor = true);
 
     /** Sets trigger source type */
-    static void setTriggerSourceTriggerType (TriggerSource* source,
-                                             TriggerType type,
-                                             bool updateEditor = true);
+    void setTriggerSourceTriggerType (TriggerSource* source,
+                                      TriggerType type,
+                                      bool updateEditor = true);
     String ensureUniqueTriggerSourceName (String name);
     int getNextConditionIndex() const { return m_nextConditionIndex; }
     void clear() { m_triggerSources.clear(); }
     size_t size() const { return m_triggerSources.size(); }
 
 private:
+    // dependencies
+    TriggeredAvgNode* m_parentProcessor = nullptr;
+
+    // data
     OwnedArray<TriggerSource> m_triggerSources;
     int m_nextConditionIndex = 1;
     TriggerSource* m_currentTriggerSource = nullptr;

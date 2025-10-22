@@ -1,7 +1,7 @@
 #include "TriggeredAvgActions.h"
-#include "Ui/TriggeredAvgEditor.h"
-#include "TriggeredAvgNode.h"
 #include "TriggerSource.h"
+#include "TriggeredAvgNode.h"
+#include "Ui/TriggeredAvgEditor.h"
 
 using namespace TriggeredAverage;
 
@@ -30,8 +30,8 @@ bool AddTriggerConditions::perform()
 {
     for (int i = 0; i < triggerLines.size(); i++)
     {
-        TriggerSource* source =
-            processorNode->getTriggerSources().addTriggerSource (triggerLines[i], type, triggerIndices[i]);
+        TriggerSource* source = processorNode->getTriggerSources().addTriggerSource (
+            triggerLines[i], type, triggerIndices[i]);
         triggerSources.add (source);
     }
 
@@ -137,8 +137,8 @@ bool RemoveTriggerConditions::undo()
         String savedColour = sourceXml->getStringAttribute ("colour", "");
         int savedIndex = sourceXml->getIntAttribute ("index", -1);
 
-        TriggerSource* source =
-            processorNode->getTriggerSources().addTriggerSource (savedLine, (TriggerType) savedType, savedIndex);
+        TriggerSource* source = processorNode->getTriggerSources().addTriggerSource (
+            savedLine, (TriggerType) savedType, savedIndex);
 
         if (savedName.isNotEmpty())
             source->name = savedName;
@@ -166,7 +166,6 @@ RenameTriggerSource::RenameTriggerSource (TriggeredAvgNode* processor_,
     triggerIndex = processorNode->getTriggerSources().getAll().indexOf (triggerSourcesToRename);
     oldName = triggerSourcesToRename->name;
 }
-
 
 void RenameTriggerSource::restoreOwner (GenericProcessor* processor)
 {
@@ -212,7 +211,6 @@ ChangeTriggerTTLLine::ChangeTriggerTTLLine (TriggeredAvgNode* processor_,
     oldLine = triggerSource->line;
 }
 
-
 void ChangeTriggerTTLLine::restoreOwner (GenericProcessor* processor)
 {
     processorNode = (TriggeredAvgNode*) processor;
@@ -224,6 +222,8 @@ bool ChangeTriggerTTLLine::perform()
     if (source != nullptr)
     {
         processorNode->getTriggerSources().setTriggerSourceLine (source, newLine);
+        if (auto* editor = dynamic_cast<TriggeredAvgEditor*> (processorNode->getEditor()))
+            editor->updateConditionName (source);
         processorNode->registerUndoableAction (processorNode->getNodeId(), this);
         CoreServices::sendStatusMessage ("Changed trigger condition line from " + String (oldLine)
                                          + " to " + String (newLine));
@@ -238,6 +238,8 @@ bool ChangeTriggerTTLLine::undo()
     if (source != nullptr)
     {
         processorNode->getTriggerSources().setTriggerSourceLine (source, oldLine);
+        if (auto* editor = dynamic_cast<TriggeredAvgEditor*> (processorNode->getEditor()))
+            editor->updateConditionName (source);
         CoreServices::sendStatusMessage ("Changed trigger condition line from " + String (newLine)
                                          + " to " + String (oldLine));
     }

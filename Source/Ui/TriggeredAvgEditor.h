@@ -62,11 +62,11 @@ public:
     /** Adds triggers with a given type */
     void addTriggerSources (Popup::PopupConfigurationWindow* window,
                             Array<int> lines,
-                            TriggerType type);
+                            TriggerType type) const;
 
     /** Removes triggers based on an array of pointers to trigger objects*/
     void removeTriggerSources (Popup::PopupConfigurationWindow* window,
-                               Array<TriggerSource*> triggerSourcesToRemove);
+                               Array<TriggerSource*> triggerSourcesToRemove) const;
 
 private:
     std::unique_ptr<UtilityButton> configureButton;

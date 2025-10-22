@@ -218,8 +218,8 @@ void ColourDisplayCustomComponent::changeListenerCallback (ChangeBroadcaster* co
 
     if (cs != nullptr)
     {
-        TriggerSources::setTriggerSourceColour (source, cs->getCurrentColour());
-
+        source->processor->getTriggerSources().setTriggerSourceColour (source,
+                                                                       cs->getCurrentColour());
         repaint();
     }
 }

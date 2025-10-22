@@ -1,4 +1,8 @@
 #include "TriggerSource.h"
+
+#include "TriggeredAvgNode.h"
+#include "Ui/TriggeredAvgEditor.h"
+
 #include <JuceHeader.h>
 
 using namespace TriggeredAverage;
@@ -42,7 +46,7 @@ TriggerSource* TriggerSources::addTriggerSource (int line, TriggerType type, int
     String name = "Condition " + String (m_nextConditionIndex++);
     name = ensureUniqueTriggerSourceName (name);
 
-    TriggerSource* source = new TriggerSource (nullptr, name, line, type);
+    TriggerSource* source = new TriggerSource (m_parentProcessor, name, line, type);
 
     if (index == -1)
         m_triggerSources.add (source);
@@ -50,7 +54,8 @@ TriggerSource* TriggerSources::addTriggerSource (int line, TriggerType type, int
         m_triggerSources.insert (index, source);
 
     m_currentTriggerSource = source;
-    //getParameter ("trigger_type")->setNextValue ((int) type, false);
+    m_parentProcessor->getParameter (ParameterNames::trigger_type)
+        ->setNextValue ((int) type, false);
 
     return source;
 }
@@ -91,24 +96,39 @@ String TriggerSources::ensureUniqueTriggerSourceName (String name)
 void TriggerSources::setTriggerSourceName (TriggerSource* source, String name, bool updateEditor)
 {
     source->name = ensureUniqueTriggerSourceName (name);
+
+    if (auto* editor = dynamic_cast<TriggeredAvgEditor*> (m_parentProcessor->getEditor());
+        updateEditor && editor)
+    {
+        editor->updateConditionName (source);
+    }
 }
 
 void TriggerSources::setTriggerSourceLine (TriggerSource* source, int line, bool updateEditor)
 {
     source->line = line;
     source->colour = TriggerSource::getColourForLine (line);
+    if (m_parentProcessor && updateEditor)
+    {
+        m_parentProcessor->getParameter (ParameterNames::trigger_line)->setNextValue (line, false);
+    }
 }
 
 void TriggerSources::setTriggerSourceColour (TriggerSource* source,
-                                               Colour colour,
-                                               bool updateEditor)
+                                             Colour colour,
+                                             bool updateEditor)
 {
     source->colour = colour;
+    if (auto* editor = dynamic_cast<TriggeredAvgEditor*> (m_parentProcessor->getEditor());
+        updateEditor && editor)
+    {
+        editor->updateColours (source);
+    }
 }
 
 void TriggerSources::setTriggerSourceTriggerType (TriggerSource* source,
-                                                    TriggerType type,
-                                                    bool updateEditor)
+                                                  TriggerType type,
+                                                  bool updateEditor)
 {
     source->type = type;
 
@@ -116,4 +136,7 @@ void TriggerSources::setTriggerSourceTriggerType (TriggerSource* source,
         source->canTrigger = true;
     else
         source->canTrigger = false;
+    if (m_parentProcessor && updateEditor)
+        m_parentProcessor->getParameter (ParameterNames::trigger_type)
+            ->setNextValue ((int) type, false);
 }

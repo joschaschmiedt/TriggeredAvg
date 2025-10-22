@@ -52,7 +52,7 @@ public:
     void comboBoxChanged (ComboBox* comboBox) override;
     void resized() override;
     void paint (Graphics& g) override;
-    void saveCustomParametersToXml (XmlElement* xml);
+    void saveCustomParametersToXml (XmlElement* xml) const;
     void loadCustomParametersFromXml (XmlElement* xml);
 
 private:
@@ -76,9 +76,6 @@ public:
     TriggeredAvgCanvas (TriggeredAvgNode* processor);
     ~TriggeredAvgCanvas() override = default;
 
-    /** Renders the Visualizer on each animation callback cycle
-        Called instead of Juce's "repaint()" to avoid redrawing underlying components
-        if not necessary.*/
     void refresh() override
     {
         if (m_grid)
@@ -115,6 +112,9 @@ public:
 
     /** Prepare for update*/
     void prepareToUpdate();
+
+    // Visualizer calls refresh but we don't, unless new data was added (from Processor)
+    void timerCallback() override {};
 
     /** Save plot type*/
     void saveCustomParametersToXml (XmlElement* xml) override;

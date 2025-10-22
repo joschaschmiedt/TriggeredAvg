@@ -18,7 +18,7 @@ TriggeredAvgEditor::TriggeredAvgEditor (GenericProcessor* parentNode)
     addBoundedValueParameterEditor (Parameter::PROCESSOR_SCOPE, ParameterNames::pre_ms, 20, 30);
     addBoundedValueParameterEditor (Parameter::PROCESSOR_SCOPE, ParameterNames::post_ms, 20, 78);
 
-    for (auto& p : { "pre_ms", "post_ms" })
+    for (auto& p : { ParameterNames::pre_ms, ParameterNames::post_ms })
     {
         auto* ed = getParameterEditor (p);
         ed->setLayout (ParameterEditor::Layout::nameOnTop);
@@ -72,23 +72,7 @@ void TriggeredAvgEditor::updateSettings()
                 channel, source, i, store->getRefToAverageBufferForTriggerSource (source));
         }
     }
-    //for (int i = 0; i < proc->getTotalContinuousChannels(); i++)
-    //{
-    //    const ContinuousChannel* channel = proc->getContinuousChannel (i);
-
-    //    for (auto source : proc->getTriggerSources())
-    //    {
-    //        //if (channel->isValid())
-    //        {
-    //            auto* buf = proc->getDataStore()->getRefToAverageBufferForTriggerSource (source);
-    //            canvas->addContChannel (channel, source);
-    //            //LOGD("Editor adding ", channel->getName(), " for ", source->name);
-    //        }
-    //    }
-    //}
-
     canvas->setWindowSizeMs (proc->getPreWindowSizeMs(), proc->getPostWindowSizeMs());
-
     canvas->resized();
 }
 
@@ -129,7 +113,7 @@ void TriggeredAvgEditor::buttonClicked (Button* button)
 
 void TriggeredAvgEditor::addTriggerSources (Popup::PopupConfigurationWindow* window,
                                             Array<int> lines,
-                                            TriggerType type)
+                                            TriggerType type) const
 {
     TriggeredAvgNode* proc = (TriggeredAvgNode*) getProcessor();
 
@@ -144,7 +128,7 @@ void TriggeredAvgEditor::addTriggerSources (Popup::PopupConfigurationWindow* win
 
 void TriggeredAvgEditor::removeTriggerSources (
     Popup::PopupConfigurationWindow* window,
-    juce::Array<TriggerSource*, juce::DummyCriticalSection, 0> triggerSourcesToRemove)
+    juce::Array<TriggerSource*, juce::DummyCriticalSection, 0> triggerSourcesToRemove) const
 {
     TriggeredAvgNode* proc = (TriggeredAvgNode*) getProcessor();
 

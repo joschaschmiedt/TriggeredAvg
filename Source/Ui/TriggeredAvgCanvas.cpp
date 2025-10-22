@@ -155,7 +155,7 @@ void OptionsBar::paint (Graphics& g)
     g.drawText ("Type", 390, verticalOffset + 15, 43, 15, Justification::centredRight, false);
 }
 
-void OptionsBar::saveCustomParametersToXml (XmlElement* xml)
+void OptionsBar::saveCustomParametersToXml (XmlElement* xml) const
 {
     xml->setAttribute ("plot_type", plotTypeSelector->getSelectedId());
     xml->setAttribute ("num_cols", columnNumberSelector->getSelectedId());
