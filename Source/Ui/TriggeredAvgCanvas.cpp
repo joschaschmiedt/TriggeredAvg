@@ -644,9 +644,6 @@ TriggeredAvgCanvas::TriggeredAvgCanvas (TriggeredAvgNode* processor_)
     m_optionsBarHolder->setViewedComponent (m_optionsBar.get(), false);
     addAndMakeVisible (m_optionsBarHolder.get());
 
-    // Start timer for regular display updates (60 Hz)
-    // Note: Visualizer already inherits from Timer, so we use the inherited startTimer
-    startTimer (16); // ~60 FPS
 }
 
 void TriggeredAvgCanvas::refreshState() { resized(); }

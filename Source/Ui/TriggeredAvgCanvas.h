@@ -117,12 +117,7 @@ public:
         }
     }
 
-    /** Timer callback - not needed since refresh is called directly on data updates */
-    void timerCallback() override
-    {
-        // No-op: refresh is now called directly from handleAsyncUpdate() when data arrives
-        // This eliminates 50 FPS polling
-    }
+    void timerCallback() override {}
 
     /** Called when the Visualizer's tab becomes visible after being hidden .*/
     void refreshState() override;
