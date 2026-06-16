@@ -308,9 +308,79 @@ bool ChangeTriggerType::undo()
         processorNode->getTriggerSources().setTriggerSourceTriggerType (source, oldType);
         CoreServices::sendStatusMessage ("Changed trigger condition line from "
                                          + String { TriggerTypeToString (newType) } + " to "
-
                                          + String { TriggerTypeToString (oldType) });
     }
 
+    return true;
+}
+
+SetTriggerSourcePattern::SetTriggerSourcePattern (TriggeredAvgNode* processor_,
+                                                  TriggerSource* source_,
+                                                  Field field_,
+                                                  const String& newPattern_)
+    : ProcessorAction ("SetTriggerSourcePattern"),
+      processorNode (processor_),
+      triggerSource (source_),
+      field (field_),
+      newPattern (newPattern_)
+{
+    triggerIndex = processorNode->getTriggerSources().getIndexOf (triggerSource);
+    switch (field)
+    {
+        case Field::ARM:    oldPattern = source_->armPattern;    break;
+        case Field::CANCEL: oldPattern = source_->cancelPattern; break;
+        case Field::COMMIT: oldPattern = source_->commitPattern; break;
+    }
+}
+
+void SetTriggerSourcePattern::restoreOwner (GenericProcessor* processor)
+{
+    processorNode = static_cast<TriggeredAvgNode*> (processor);
+}
+
+bool SetTriggerSourcePattern::perform()
+{
+    auto source = processorNode->getTriggerSources().getByIndex (triggerIndex);
+    if (source != nullptr)
+    {
+        switch (field)
+        {
+            case Field::ARM:
+                processorNode->getTriggerSources().setTriggerSourceArmPattern (source, newPattern);
+                break;
+            case Field::CANCEL:
+                processorNode->getTriggerSources().setTriggerSourceCancelPattern (source,
+                                                                                  newPattern);
+                break;
+            case Field::COMMIT:
+                processorNode->getTriggerSources().setTriggerSourceCommitPattern (source,
+                                                                                  newPattern);
+                break;
+        }
+        processorNode->registerUndoableAction (processorNode->getNodeId(), this);
+    }
+    return true;
+}
+
+bool SetTriggerSourcePattern::undo()
+{
+    auto source = processorNode->getTriggerSources().getByIndex (triggerIndex);
+    if (source != nullptr)
+    {
+        switch (field)
+        {
+            case Field::ARM:
+                processorNode->getTriggerSources().setTriggerSourceArmPattern (source, oldPattern);
+                break;
+            case Field::CANCEL:
+                processorNode->getTriggerSources().setTriggerSourceCancelPattern (source,
+                                                                                  oldPattern);
+                break;
+            case Field::COMMIT:
+                processorNode->getTriggerSources().setTriggerSourceCommitPattern (source,
+                                                                                  oldPattern);
+                break;
+        }
+    }
     return true;
 }

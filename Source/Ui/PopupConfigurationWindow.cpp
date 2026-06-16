@@ -38,20 +38,54 @@ void EditableTextCustomComponent::setRowAndColumn (const int newRow, const int n
     row = newRow;
     columnId = newColumn;
 
-    if (source != nullptr)
-        setText (source->name, dontSendNotification);
+    if (source == nullptr)
+        return;
+
+    switch (columnId)
+    {
+        case TableModel::Columns::NAME:
+            setText (source->name, dontSendNotification);
+            break;
+        case TableModel::Columns::ARM_PATTERN:
+            setText (source->armPattern, dontSendNotification);
+            break;
+        case TableModel::Columns::CANCEL_PATTERN:
+            setText (source->cancelPattern, dontSendNotification);
+            break;
+        case TableModel::Columns::COMMIT_PATTERN:
+            setText (source->commitPattern, dontSendNotification);
+            break;
+        default:
+            break;
+    }
 }
 
 void EditableTextCustomComponent::labelTextChanged (Label* label)
 {
-    String candidateName = label->getText();
+    const String newValue = label->getText();
 
-    String newName = processor->getTriggerSources().ensureUniqueTriggerSourceName (candidateName);
+    if (columnId == TableModel::Columns::NAME)
+    {
+        String newName =
+            processor->getTriggerSources().ensureUniqueTriggerSourceName (newValue);
+        label->setText (newName, dontSendNotification);
+        auto* action = new RenameTriggerSource (processor, source, newName);
+        CoreServices::getUndoManager()->beginNewTransaction();
+        CoreServices::getUndoManager()->perform ((UndoableAction*) action);
+        return;
+    }
 
-    label->setText (newName, dontSendNotification);
+    SetTriggerSourcePattern::Field field;
+    if (columnId == TableModel::Columns::ARM_PATTERN)
+        field = SetTriggerSourcePattern::Field::ARM;
+    else if (columnId == TableModel::Columns::CANCEL_PATTERN)
+        field = SetTriggerSourcePattern::Field::CANCEL;
+    else if (columnId == TableModel::Columns::COMMIT_PATTERN)
+        field = SetTriggerSourcePattern::Field::COMMIT;
+    else
+        return;
 
-    RenameTriggerSource* action = new RenameTriggerSource (processor, source, newName);
-
+    auto* action = new SetTriggerSourcePattern (processor, source, field, newValue);
     CoreServices::getUndoManager()->beginNewTransaction();
     CoreServices::getUndoManager()->perform ((UndoableAction*) action);
 }
@@ -319,7 +353,10 @@ Component* TableModel::refreshComponentForCell (int rowNumber,
                                                 bool isRowSelected,
                                                 Component* existingComponentToUpdate)
 {
-    if (columnId == TableModel::Columns::NAME)
+    if (columnId == TableModel::Columns::NAME
+        || columnId == TableModel::Columns::ARM_PATTERN
+        || columnId == TableModel::Columns::CANCEL_PATTERN
+        || columnId == TableModel::Columns::COMMIT_PATTERN)
     {
         auto* textLabel = static_cast<EditableTextCustomComponent*> (existingComponentToUpdate);
 
@@ -426,6 +463,19 @@ void TableModel::update (Array<TriggerSource*> triggerSources_)
         etcc->source = triggerSources[i];
 
         etcc->repaint();
+
+        for (int col : { (int) TableModel::Columns::ARM_PATTERN,
+                          (int) TableModel::Columns::CANCEL_PATTERN,
+                          (int) TableModel::Columns::COMMIT_PATTERN })
+        {
+            c = table->getCellComponent (col, i);
+            if (c != nullptr)
+            {
+                auto* etcc = static_cast<EditableTextCustomComponent*> (c);
+                etcc->source = triggerSources[i];
+                etcc->repaint();
+            }
+        }
 
         c = table->getCellComponent (TableModel::Columns::LINE, i);
 
@@ -692,6 +742,24 @@ PopupConfigurationWindow::PopupConfigurationWindow (TriggeredAvgEditor* editor_,
                                   180,
                                   180,
                                   TableHeaderComponent::notResizableOrSortable);
+    table->getHeader().addColumn ("Arm",
+                                  TableModel::Columns::ARM_PATTERN,
+                                  120,
+                                  120,
+                                  120,
+                                  TableHeaderComponent::notResizableOrSortable);
+    table->getHeader().addColumn ("Cancel",
+                                  TableModel::Columns::CANCEL_PATTERN,
+                                  120,
+                                  120,
+                                  120,
+                                  TableHeaderComponent::notResizableOrSortable);
+    table->getHeader().addColumn ("Commit",
+                                  TableModel::Columns::COMMIT_PATTERN,
+                                  120,
+                                  120,
+                                  120,
+                                  TableHeaderComponent::notResizableOrSortable);
     table->getHeader().addColumn ("TTL Line",
                                   TableModel::Columns::LINE,
                                   100,
@@ -762,15 +830,15 @@ void PopupConfigurationWindow::update (Array<TriggerSource*> triggerSources)
             viewport->getVerticalScrollBar().setVisible (false);
         }
 
-        setSize (480 + scrollBarWidth, (numRowsVisible + 1) * 30 + 10 + 40);
-        viewport->setBounds (5, 5, 460 + scrollBarWidth, (numRowsVisible + 1) * 30);
-        table->setBounds (0, 0, 460 + scrollBarWidth, (triggerSources.size() + 1) * 30);
+        setSize (840 + scrollBarWidth, (numRowsVisible + 1) * 30 + 10 + 40);
+        viewport->setBounds (5, 5, 820 + scrollBarWidth, (numRowsVisible + 1) * 30);
+        table->setBounds (0, 0, 820 + scrollBarWidth, (triggerSources.size() + 1) * 30);
 
         viewport->setViewPosition (0, scrollDistance);
 
         table->setVisible (true);
 
-        triggerSourceGenerator->setBounds (10, viewport->getBottom() + 8, 430, 30);
+        triggerSourceGenerator->setBounds (10, viewport->getBottom() + 8, 790, 30);
 
         updating = false;
     }
@@ -778,8 +846,8 @@ void PopupConfigurationWindow::update (Array<TriggerSource*> triggerSources)
     {
         tableModel->update (triggerSources);
         table->setVisible (false);
-        setSize (480, 45);
-        triggerSourceGenerator->setBounds (10, 8, 460, 30);
+        setSize (840, 45);
+        triggerSourceGenerator->setBounds (10, 8, 820, 30);
     }
 }
 

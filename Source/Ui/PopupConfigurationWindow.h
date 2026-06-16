@@ -225,6 +225,9 @@ public:
     {
         INDEX = 1,
         NAME,
+        ARM_PATTERN,
+        CANCEL_PATTERN,
+        COMMIT_PATTERN,
         LINE,
         TYPE,
         COLOUR,
