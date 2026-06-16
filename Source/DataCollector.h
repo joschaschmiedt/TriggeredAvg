@@ -190,7 +190,9 @@ private:
     CriticalSection triggerQueueLock;
     WaitableEvent newTriggerEvent;
 
-    RingBufferReadResult processCaptureRequest (const CaptureRequest&);
+    // averageWasUpdated is set to true only when the capture is immediately
+    // committed to the average (not when it is stored as pending).
+    RingBufferReadResult processCaptureRequest (const CaptureRequest&, bool& averageWasUpdated);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DataCollector)
     JUCE_DECLARE_NON_MOVEABLE (DataCollector)

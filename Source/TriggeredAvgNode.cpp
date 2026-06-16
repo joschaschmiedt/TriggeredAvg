@@ -334,24 +334,60 @@ void TriggeredAvgNode::loadCustomParametersFromXml (XmlElement* xml)
 
 void TriggeredAvgNode::handleBroadcastMessage (const String& message, const int64 sysTimeMs)
 {
-    if (m_dataCollector && m_threadsInitialized.load())
+    if (! (m_dataCollector && m_threadsInitialized.load()))
+        return;
+
+    // Lazy timeout cleanup
     {
-        for (auto source : m_triggerSources.getAll())
+        auto lock = m_dataStore->GetLock();
+        m_dataStore->discardExpiredPendingCaptures();
+    }
+
+    for (auto source : m_triggerSources.getAll())
+    {
+        // Cancel: discard any pending capture and disarm TTL_AND_MSG conditions
+        if (source->cancelPattern.isNotEmpty()
+            && message.containsIgnoreCase (source->cancelPattern))
         {
-            if (source->armPattern.isNotEmpty()
-                && message.containsIgnoreCase (source->armPattern))
             {
-                if (source->type == TriggerType::TTL_AND_MSG_TRIGGER)
-                {
-                    source->canTrigger = true;
-                    LOGD ("[TriggeredAvg] Condition '", source->name, "' armed");
-                }
-                else if (source->type == TriggerType::MSG_TRIGGER)
-                {
-                    // TODO: implement message-only triggering (use sysTimeMs to
-                    // estimate trigger sample and register a CaptureRequest)
-                    LOGD ("[TriggeredAvg] MSG_TRIGGER not yet implemented, ignoring message");
-                }
+                auto lock = m_dataStore->GetLock();
+                m_dataStore->discardPendingCapture (source);
+            }
+            if (source->type == TriggerType::TTL_AND_MSG_TRIGGER)
+                source->canTrigger = false;
+            LOGD ("[TriggeredAvg] Condition '", source->name, "' cancelled");
+        }
+
+        // Commit: move pending capture into the average
+        if (source->commitPattern.isNotEmpty()
+            && message.containsIgnoreCase (source->commitPattern))
+        {
+            bool committed = false;
+            {
+                auto lock = m_dataStore->GetLock();
+                committed = m_dataStore->commitPendingCapture (source);
+            }
+            if (committed)
+            {
+                LOGD ("[TriggeredAvg] Pending capture committed for '", source->name, "'");
+                triggerAsyncUpdate();
+            }
+        }
+
+        // Arm
+        if (source->armPattern.isNotEmpty()
+            && message.containsIgnoreCase (source->armPattern))
+        {
+            if (source->type == TriggerType::TTL_AND_MSG_TRIGGER)
+            {
+                source->canTrigger = true;
+                LOGD ("[TriggeredAvg] Condition '", source->name, "' armed");
+            }
+            else if (source->type == TriggerType::MSG_TRIGGER)
+            {
+                // TODO: implement message-only triggering (use sysTimeMs to
+                // estimate trigger sample and register a CaptureRequest)
+                LOGD ("[TriggeredAvg] MSG_TRIGGER not yet implemented, ignoring message");
             }
         }
     }

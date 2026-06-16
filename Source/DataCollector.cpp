@@ -206,17 +206,18 @@ void DataCollector::run()
 
                 do
                 {
-                    result = processCaptureRequest (currentRequest);
+                    bool captureCommitted = false;
+                    result = processCaptureRequest (currentRequest, captureCommitted);
                     assert (result != RingBufferReadResult::UnknownError);
 
                     switch (result)
                     {
                         case RingBufferReadResult::Success:
-                            averageBuffersWereUpdated = true;
+                            if (captureCommitted)
+                                averageBuffersWereUpdated = true;
                             LOGD ("[TriggeredAvg] Capture Request succesfully processed ")
                             break;
                         case RingBufferReadResult::DataInRingBufferTooOld:
-                            averageBuffersWereUpdated = true;
                             LOGD ("[TriggeredAvg] Catpure Request dicarded, data too old. ")
                             break;
 
@@ -288,7 +289,8 @@ void DataCollector::run()
 }
 
 // process a single capture request on the ring buffer, running on the data collector thread
-RingBufferReadResult DataCollector::processCaptureRequest (const CaptureRequest& request)
+RingBufferReadResult DataCollector::processCaptureRequest (const CaptureRequest& request,
+                                                           bool& averageWasUpdated)
 {
     auto result = ringBuffer->readAroundSample (
         request.triggerSample, request.preSamples, request.postSamples, m_collectBuffer);
@@ -345,7 +347,19 @@ RingBufferReadResult DataCollector::processCaptureRequest (const CaptureRequest&
                                                             m_collectBuffer.getNumSamples());
     }
 
-    // Now add data with a separate, brief lock acquisition
+    // If a commit pattern is set, hold the capture pending instead of committing immediately.
+    // The message thread will call commitPendingCapture / discardPendingCapture.
+    if (request.triggerSource->commitPattern.isNotEmpty())
+    {
+        m_datastore->storePendingCapture (request.triggerSource,
+                                         m_collectBuffer,
+                                         request.triggerSource->pendingTimeoutMs);
+        averageWasUpdated = false;
+        LOGD ("[TriggeredAvg] Capture stored as pending for '", request.triggerSource->name, "'");
+        return result;
+    }
+
+    // Commit immediately
     {
         auto lock = m_datastore->GetLock();
         avgBuffer = m_datastore->getRefToAverageBufferForTriggerSource (request.triggerSource);
@@ -356,11 +370,9 @@ RingBufferReadResult DataCollector::processCaptureRequest (const CaptureRequest&
         jassert (m_collectBuffer.getNumSamples() == avgBuffer->getNumSamples());
         jassert (m_collectBuffer.getNumChannels() == avgBuffer->getNumChannels());
 
-        // Add to average buffer
         avgBuffer->addDataToAverageFromBuffer (m_collectBuffer);
-
-        // Add to trial buffer (uses template wrapper for AudioBuffer)
         trialBuffer->addTrial (m_collectBuffer);
+        averageWasUpdated = true;
     }
 
     return result;
