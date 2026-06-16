@@ -72,12 +72,80 @@ void DataStore::ResetAllBuffers()
 {
     auto lock = GetLock();
     for (auto& [source, avgBuffer] : m_averageBuffers)
-    {
         avgBuffer.resetTrials();
-    }
     for (auto& [source, trialBuffer] : m_singleTrialBuffers)
-    {
         trialBuffer.clear();
+    m_pendingCaptures.clear();
+}
+
+void DataStore::storePendingCapture (TriggerSource* source,
+                                     const juce::AudioBuffer<float>& buffer,
+                                     int timeoutMs)
+{
+    auto lock = GetLock();
+    PendingCapture pc;
+    pc.buffer = buffer; // copy
+    pc.captureTimeMs = juce::Time::currentTimeMillis();
+    pc.timeoutMs = timeoutMs;
+    m_pendingCaptures[source] = std::move (pc);
+}
+
+bool DataStore::commitPendingCapture (TriggerSource* source)
+{
+    auto lock = GetLock();
+
+    auto it = m_pendingCaptures.find (source);
+    if (it == m_pendingCaptures.end())
+        return false;
+
+    auto& buf = it->second.buffer;
+
+    auto* avgBuffer = getRefToAverageBufferForTriggerSource (source);
+    auto* trialBuffer = getRefToTrialBufferForTriggerSource (source);
+
+    if (! avgBuffer || ! trialBuffer
+        || buf.getNumSamples() != avgBuffer->getNumSamples()
+        || buf.getNumChannels() != avgBuffer->getNumChannels())
+    {
+        m_pendingCaptures.erase (it);
+        return false;
+    }
+
+    avgBuffer->addDataToAverageFromBuffer (buf);
+    trialBuffer->addTrial (buf);
+    m_pendingCaptures.erase (it);
+    return true;
+}
+
+void DataStore::discardPendingCapture (TriggerSource* source)
+{
+    auto lock = GetLock();
+    m_pendingCaptures.erase (source);
+}
+
+bool DataStore::hasPendingCapture (TriggerSource* source) const
+{
+    // Const-correct: lock the mutex via const cast (recursive_mutex is mutable-safe here)
+    std::scoped_lock<std::recursive_mutex> lock (const_cast<std::recursive_mutex&> (m_mutex));
+    return m_pendingCaptures.count (source) > 0;
+}
+
+void DataStore::discardExpiredPendingCaptures()
+{
+    auto lock = GetLock();
+    const juce::int64 now = juce::Time::currentTimeMillis();
+    for (auto it = m_pendingCaptures.begin(); it != m_pendingCaptures.end();)
+    {
+        const auto& pc = it->second;
+        if (pc.timeoutMs > 0 && (now - pc.captureTimeMs) >= pc.timeoutMs)
+        {
+            LOGD ("[TriggeredAvg] Pending capture expired for source");
+            it = m_pendingCaptures.erase (it);
+        }
+        else
+        {
+            ++it;
+        }
     }
 }
 

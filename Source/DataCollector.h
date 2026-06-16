@@ -134,16 +134,37 @@ public:
         auto lock = GetLock();
         m_averageBuffers.clear();
         m_singleTrialBuffers.clear();
+        m_pendingCaptures.clear();
     }
 
     void ResetAllBuffers();
-
     void setMaxTrialsToStore (int n);
 
+    // Pending-commit support -------------------------------------------------
+    void storePendingCapture (TriggerSource* source,
+                              const juce::AudioBuffer<float>& buffer,
+                              int timeoutMs);
+    // Moves the pending buffer into the average/trial buffers. Returns true if
+    // a pending capture existed and was successfully committed.
+    bool commitPendingCapture (TriggerSource* source);
+    void discardPendingCapture (TriggerSource* source);
+    bool hasPendingCapture (TriggerSource* source) const;
+    // Discards all pending captures whose timeout has elapsed. Call
+    // periodically on the message thread (e.g. from handleBroadcastMessage).
+    void discardExpiredPendingCaptures();
+
 private:
+    struct PendingCapture
+    {
+        juce::AudioBuffer<float> buffer;
+        juce::int64 captureTimeMs;
+        int timeoutMs; // 0 = never expires
+    };
+
     std::recursive_mutex m_mutex;
     std::unordered_map<TriggerSource*, MultiChannelAverageBuffer> m_averageBuffers;
     std::unordered_map<TriggerSource*, SingleTrialBufferJuce> m_singleTrialBuffers;
+    std::unordered_map<TriggerSource*, PendingCapture> m_pendingCaptures;
 };
 
 class DataCollector : public Thread
