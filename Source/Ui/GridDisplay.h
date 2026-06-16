@@ -108,7 +108,6 @@ private:
 
     bool overlayConditions = false;
 
-    float post_ms;
     DisplayMode plotType = DisplayMode::INDIVIDUAL_TRACES;
 };
 
