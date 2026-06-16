@@ -646,6 +646,15 @@ TriggeredAvgCanvas::TriggeredAvgCanvas (TriggeredAvgNode* processor_)
 
 }
 
+void TriggeredAvgCanvas::refresh()
+{
+    if (m_grid && m_dataStore)
+    {
+        auto lock = m_dataStore->GetLock();
+        m_grid->refresh();
+    }
+}
+
 void TriggeredAvgCanvas::refreshState() { resized(); }
 
 void TriggeredAvgCanvas::resized()

@@ -108,14 +108,7 @@ public:
     TriggeredAvgCanvas (TriggeredAvgNode* processor);
     ~TriggeredAvgCanvas() override = default;
 
-    void refresh() override
-    {
-        if (m_grid && m_dataStore)
-        {
-            auto lock = m_dataStore->GetLock();
-            m_grid->refresh();
-        }
-    }
+    void refresh() override;
 
     void timerCallback() override {}
 

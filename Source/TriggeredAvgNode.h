@@ -24,6 +24,7 @@
 #pragma once
 
 #include "TriggerSource.h"
+#include "Types.h"
 
 #include <ProcessorHeaders.h>
 #include <atomic>
