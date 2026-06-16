@@ -400,8 +400,8 @@ void TriggeredAvgNode::handleTTLEvent (TTLEventPtr event)
 
 void TriggeredAvgNode::handleAsyncUpdate()
 {
-    // Called on message thread when new data arrives - directly refresh canvas
-    m_canvas->refresh();
+    if (m_canvas)
+        m_canvas->refresh();
 }
 
 void TriggeredAvgNode::initializeThreads()
