@@ -19,6 +19,7 @@ set(TRIGGERED_AVG_TEST_SOURCES
     test_SingleTrialBuffer_RawPointers.cpp
     test_DataStore.cpp
     test_DataCollector.cpp
+    test_PendingCapture.cpp
 )
 
 # Enable testing
