@@ -141,7 +141,7 @@ void LineSelectorCustomComponent::selectedLineChanged (int selectedLine)
     }
 
     ChangeTriggerTTLLine* action =
-        new ChangeTriggerTTLLine (source->processor, source, selectedLine);
+        new ChangeTriggerTTLLine (processor, source, selectedLine);
     CoreServices::getUndoManager()->beginNewTransaction();
     CoreServices::getUndoManager()->perform ((UndoableAction*) action);
 }
@@ -169,7 +169,7 @@ void TriggerTypeSelectorCustomComponent::mouseDown (const juce::MouseEvent& even
             break;
     }
 
-    ChangeTriggerType* action = new ChangeTriggerType (source->processor, source, newType);
+    ChangeTriggerType* action = new ChangeTriggerType (processor, source, newType);
     CoreServices::getUndoManager()->beginNewTransaction();
     CoreServices::getUndoManager()->perform ((UndoableAction*) action);
 
@@ -252,8 +252,8 @@ void ColourDisplayCustomComponent::changeListenerCallback (ChangeBroadcaster* co
 
     if (cs != nullptr)
     {
-        source->processor->getTriggerSources().setTriggerSourceColour (source,
-                                                                       cs->getCurrentColour());
+        processor->getTriggerSources().setTriggerSourceColour (source,
+                                                             cs->getCurrentColour());
         repaint();
     }
 }
@@ -381,8 +381,9 @@ Component* TableModel::refreshComponentForCell (int rowNumber,
 
         if (linesLabel == nullptr)
         {
-            linesLabel =
-                new LineSelectorCustomComponent (triggerSources[rowNumber], acquisitionIsActive);
+            auto* proc = dynamic_cast<TriggeredAvgNode*> (editor->getProcessor());
+            linesLabel = new LineSelectorCustomComponent (
+                proc, triggerSources[rowNumber], acquisitionIsActive);
         }
 
         linesLabel->setColour (Label::textColourId, Colours::white);
@@ -397,8 +398,9 @@ Component* TableModel::refreshComponentForCell (int rowNumber,
 
         if (selectorButton == nullptr)
         {
-            selectorButton = new TriggerTypeSelectorCustomComponent (triggerSources[rowNumber],
-                                                                     acquisitionIsActive);
+            auto* proc = dynamic_cast<TriggeredAvgNode*> (editor->getProcessor());
+            selectorButton = new TriggerTypeSelectorCustomComponent (
+                proc, triggerSources[rowNumber], acquisitionIsActive);
         }
 
         selectorButton->setRowAndColumn (rowNumber, columnId);
@@ -413,8 +415,9 @@ Component* TableModel::refreshComponentForCell (int rowNumber,
 
         if (colourComponent == nullptr)
         {
-            colourComponent =
-                new ColourDisplayCustomComponent (triggerSources[rowNumber], acquisitionIsActive);
+            auto* proc = dynamic_cast<TriggeredAvgNode*> (editor->getProcessor());
+            colourComponent = new ColourDisplayCustomComponent (
+                proc, triggerSources[rowNumber], acquisitionIsActive);
         }
 
         colourComponent->setRowAndColumn (rowNumber, columnId);

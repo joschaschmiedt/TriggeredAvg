@@ -12,7 +12,7 @@ class MockTriggerSource : public TriggerSource
 {
 public:
     MockTriggerSource (int line = 0)
-        : TriggerSource (nullptr, "MockTrigger", line, TriggerType::TTL_TRIGGER)
+        : TriggerSource ("MockTrigger", line, TriggerType::TTL_TRIGGER)
     {
     }
 };

@@ -24,7 +24,7 @@ class MockTriggerSource : public TriggerSource
 public:
     MockTriggerSource (int line = 0,
                        TriggerType type = TriggerType::TTL_TRIGGER)
-        : TriggerSource (nullptr, "MockTrigger", line, type)
+        : TriggerSource ("MockTrigger", line, type)
     {
     }
 };

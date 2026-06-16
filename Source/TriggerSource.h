@@ -28,8 +28,7 @@ class TriggeredAvgNode;
 class TriggerSource
 {
 public:
-    TriggerSource (TriggeredAvgNode* processor_,
-                   const juce::String& name_,
+    TriggerSource (const juce::String& name_,
                    int line_,
                    TriggerType type_);
 
@@ -40,7 +39,6 @@ public:
     TriggerType type;
     bool canTrigger;
     juce::Colour colour;
-    TriggeredAvgNode* processor;
 
     // Message patterns (contains-match, case-insensitive, empty = disabled)
     juce::String armPattern;      // arm the trigger (TTL_AND_MSG) or fire directly (MSG_TRIGGER)
