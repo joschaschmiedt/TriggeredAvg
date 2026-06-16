@@ -144,3 +144,18 @@ void TriggerSources::setTriggerSourceTriggerType (TriggerSource* source,
         m_parentProcessor->getParameter (ParameterNames::trigger_type)
             ->setNextValue ((int) type, false);
 }
+
+void TriggerSources::setTriggerSourceArmPattern (TriggerSource* source, const String& pattern)
+{
+    source->armPattern = pattern;
+}
+
+void TriggerSources::setTriggerSourceCancelPattern (TriggerSource* source, const String& pattern)
+{
+    source->cancelPattern = pattern;
+}
+
+void TriggerSources::setTriggerSourceCommitPattern (TriggerSource* source, const String& pattern)
+{
+    source->commitPattern = pattern;
+}

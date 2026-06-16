@@ -293,6 +293,10 @@ void TriggeredAvgNode::saveCustomParametersToXml (XmlElement* xml)
         sourceXml->setAttribute ("line", source->line);
         sourceXml->setAttribute ("type", static_cast<int> (source->type));
         sourceXml->setAttribute ("colour", source->colour.toString());
+        sourceXml->setAttribute ("armPattern", source->armPattern);
+        sourceXml->setAttribute ("cancelPattern", source->cancelPattern);
+        sourceXml->setAttribute ("commitPattern", source->commitPattern);
+        sourceXml->setAttribute ("pendingTimeoutMs", source->pendingTimeoutMs);
     }
 }
 
@@ -319,6 +323,11 @@ void TriggeredAvgNode::loadCustomParametersFromXml (XmlElement* xml)
 
             if (savedColour.length() > 0)
                 source->colour = Colour::fromString (savedColour);
+
+            source->armPattern = sourceXml->getStringAttribute ("armPattern", "");
+            source->cancelPattern = sourceXml->getStringAttribute ("cancelPattern", "");
+            source->commitPattern = sourceXml->getStringAttribute ("commitPattern", "");
+            source->pendingTimeoutMs = sourceXml->getIntAttribute ("pendingTimeoutMs", 2000);
         }
     }
 }
@@ -329,11 +338,13 @@ void TriggeredAvgNode::handleBroadcastMessage (const String& message, const int6
     {
         for (auto source : m_triggerSources.getAll())
         {
-            if (message.equalsIgnoreCase (source->name))
+            if (source->armPattern.isNotEmpty()
+                && message.containsIgnoreCase (source->armPattern))
             {
                 if (source->type == TriggerType::TTL_AND_MSG_TRIGGER)
                 {
                     source->canTrigger = true;
+                    LOGD ("[TriggeredAvg] Condition '", source->name, "' armed");
                 }
                 else if (source->type == TriggerType::MSG_TRIGGER)
                 {
