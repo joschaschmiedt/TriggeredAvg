@@ -232,18 +232,11 @@ void TriggeredAvgNode::parameterValueChanged (Parameter* param)
 void TriggeredAvgNode::process (AudioBuffer<float>& buffer)
 {
     // For now: first stream only
-    static SampleNumber lastSampleNumber = 0;
     // TODO: Add handling of multiple streams (ring buffer per stream?)
     StreamId streamId = getDataStreams()[m_dataStreamIndex]->getStreamId();
-    auto timestamp = getFirstTimestampForBlock (streamId);
 
     SampleNumber firstSampleNumber = getFirstSampleNumberForBlock (streamId);
-    auto diff = firstSampleNumber - lastSampleNumber;
-    if (diff < 0)
-    {
-        lastSampleNumber += 0;
-    }
-    lastSampleNumber = firstSampleNumber;
+    m_lastSampleNumber = firstSampleNumber;
     if (! m_ringBuffer)
         return;
 
