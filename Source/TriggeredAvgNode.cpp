@@ -337,12 +337,9 @@ void TriggeredAvgNode::handleBroadcastMessage (const String& message, const int6
                 }
                 else if (source->type == TriggerType::MSG_TRIGGER)
                 {
-                    for (auto stream : getDataStreams())
-                    {
-                        const uint16 streamId = stream->getStreamId();
-                        // TODO: Do something
-                        assert (false);
-                    }
+                    // TODO: implement message-only triggering (use sysTimeMs to
+                    // estimate trigger sample and register a CaptureRequest)
+                    LOGD ("[TriggeredAvg] MSG_TRIGGER not yet implemented, ignoring message");
                 }
             }
         }
