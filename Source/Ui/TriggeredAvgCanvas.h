@@ -110,9 +110,11 @@ public:
 
     void refresh() override
     {
-        // Directly refresh when called (from async update when data changes)
-        if (m_grid)
+        if (m_grid && m_dataStore)
+        {
+            auto lock = m_dataStore->GetLock();
             m_grid->refresh();
+        }
     }
 
     /** Timer callback - not needed since refresh is called directly on data updates */
