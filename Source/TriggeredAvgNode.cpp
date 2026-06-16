@@ -208,24 +208,25 @@ void TriggeredAvgNode::parameterValueChanged (Parameter* param)
             triggerAsyncUpdate();
         }
     }
+    else if (param->getName().equalsIgnoreCase (use_custom_x_limits))
+    {
+        if (m_canvas)
+            triggerAsyncUpdate();
+    }
+    else if (param->getName().equalsIgnoreCase (x_min) || param->getName().equalsIgnoreCase (x_max))
+    {
+        if (m_canvas)
+            triggerAsyncUpdate();
+    }
     else if (param->getName().equalsIgnoreCase (use_custom_y_limits))
     {
         if (m_canvas)
-        {
-            // Update canvas based on the toggle state
-            float value = param->getValue();
-            bool useCustomLimits = (value > 0.5f);
-            // The canvas will handle updating the UI and applying/resetting limits
             triggerAsyncUpdate();
-        }
     }
     else if (param->getName().equalsIgnoreCase (y_min) || param->getName().equalsIgnoreCase (y_max))
     {
         if (m_canvas)
-        {
-            // Update canvas with new Y-axis limits
             triggerAsyncUpdate();
-        }
     }
 }
 
