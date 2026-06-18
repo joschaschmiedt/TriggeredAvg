@@ -5,6 +5,25 @@ All notable changes to the TriggeredAvg plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - Unreleased
+
+### Added
+
+- Message pattern matching per trigger source: each condition now has independent `armPattern`, `cancelPattern`, and `commitPattern` fields (case-insensitive substring match; empty = disabled)
+- Pending capture workflow: when a `commitPattern` is set, captured data is held in a per-source pending slot until a commit or cancel message arrives, rather than being immediately added to the average
+- `pendingTimeoutMs` (default 2000 ms) auto-discards uncommitted pending captures when the commit message never arrives
+- `DataStore` methods: `storePendingCapture`, `commitPendingCapture`, `discardPendingCapture`, `discardExpiredPendingCaptures`
+- `SetTriggerSourcePattern` undoable action for persisting pattern edits through the GUI undo stack
+- Three new editable columns (Arm, Cancel, Commit) in the trigger-source configuration popup table
+- Tests for pending capture lifecycle, pattern matching, and XML round-trip
+
+### Changed
+
+- Arm matching changed from exact `equalsIgnoreCase(source->name)` to `containsIgnoreCase(source->armPattern)`, decoupling the condition display label from message matching
+- Cancel is evaluated before commit when a message matches both patterns (always cancels rather than commits)
+- `TriggerSource` is now a plain data struct — the `TriggeredAvgNode*` back-pointer has been removed; popup UI components receive the node pointer at construction time instead
+- Configuration popup window widened to 840 px to accommodate the new pattern columns
+
 ## [0.1.1] - 2026-06-18
 
 ### Fixed
