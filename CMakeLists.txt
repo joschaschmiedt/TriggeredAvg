@@ -4,8 +4,8 @@ set(PLUGIN_NAME TriggeredAvg)
 
 # Plugin version information
 set(PLUGIN_VERSION_MAJOR 0)
-set(PLUGIN_VERSION_MINOR 1)
-set(PLUGIN_VERSION_PATCH 1)
+set(PLUGIN_VERSION_MINOR 2)
+set(PLUGIN_VERSION_PATCH 0)
 set(PLUGIN_VERSION "${PLUGIN_VERSION_MAJOR}.${PLUGIN_VERSION_MINOR}.${PLUGIN_VERSION_PATCH}")
 
 # Open Ephys GUI API version this plugin is built for
