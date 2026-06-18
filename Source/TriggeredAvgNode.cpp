@@ -208,42 +208,36 @@ void TriggeredAvgNode::parameterValueChanged (Parameter* param)
             triggerAsyncUpdate();
         }
     }
+    else if (param->getName().equalsIgnoreCase (use_custom_x_limits))
+    {
+        if (m_canvas)
+            triggerAsyncUpdate();
+    }
+    else if (param->getName().equalsIgnoreCase (x_min) || param->getName().equalsIgnoreCase (x_max))
+    {
+        if (m_canvas)
+            triggerAsyncUpdate();
+    }
     else if (param->getName().equalsIgnoreCase (use_custom_y_limits))
     {
         if (m_canvas)
-        {
-            // Update canvas based on the toggle state
-            float value = param->getValue();
-            bool useCustomLimits = (value > 0.5f);
-            // The canvas will handle updating the UI and applying/resetting limits
             triggerAsyncUpdate();
-        }
     }
     else if (param->getName().equalsIgnoreCase (y_min) || param->getName().equalsIgnoreCase (y_max))
     {
         if (m_canvas)
-        {
-            // Update canvas with new Y-axis limits
             triggerAsyncUpdate();
-        }
     }
 }
 
 void TriggeredAvgNode::process (AudioBuffer<float>& buffer)
 {
     // For now: first stream only
-    static SampleNumber lastSampleNumber = 0;
     // TODO: Add handling of multiple streams (ring buffer per stream?)
     StreamId streamId = getDataStreams()[m_dataStreamIndex]->getStreamId();
-    auto timestamp = getFirstTimestampForBlock (streamId);
 
     SampleNumber firstSampleNumber = getFirstSampleNumberForBlock (streamId);
-    auto diff = firstSampleNumber - lastSampleNumber;
-    if (diff < 0)
-    {
-        lastSampleNumber += 0;
-    }
-    lastSampleNumber = firstSampleNumber;
+    m_lastSampleNumber = firstSampleNumber;
     if (! m_ringBuffer)
         return;
 
@@ -343,12 +337,9 @@ void TriggeredAvgNode::handleBroadcastMessage (const String& message, const int6
                 }
                 else if (source->type == TriggerType::MSG_TRIGGER)
                 {
-                    for (auto stream : getDataStreams())
-                    {
-                        const uint16 streamId = stream->getStreamId();
-                        // TODO: Do something
-                        assert (false);
-                    }
+                    // TODO: implement message-only triggering (use sysTimeMs to
+                    // estimate trigger sample and register a CaptureRequest)
+                    LOGD ("[TriggeredAvg] MSG_TRIGGER not yet implemented, ignoring message");
                 }
             }
         }
@@ -400,8 +391,8 @@ void TriggeredAvgNode::handleTTLEvent (TTLEventPtr event)
 
 void TriggeredAvgNode::handleAsyncUpdate()
 {
-    // Called on message thread when new data arrives - directly refresh canvas
-    m_canvas->refresh();
+    if (m_canvas)
+        m_canvas->refresh();
 }
 
 void TriggeredAvgNode::initializeThreads()

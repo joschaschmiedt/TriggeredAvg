@@ -108,19 +108,9 @@ public:
     TriggeredAvgCanvas (TriggeredAvgNode* processor);
     ~TriggeredAvgCanvas() override = default;
 
-    void refresh() override
-    {
-        // Directly refresh when called (from async update when data changes)
-        if (m_grid)
-            m_grid->refresh();
-    }
+    void refresh() override;
 
-    /** Timer callback - not needed since refresh is called directly on data updates */
-    void timerCallback() override
-    {
-        // No-op: refresh is now called directly from handleAsyncUpdate() when data arrives
-        // This eliminates 50 FPS polling
-    }
+    void timerCallback() override {}
 
     /** Called when the Visualizer's tab becomes visible after being hidden .*/
     void refreshState() override;

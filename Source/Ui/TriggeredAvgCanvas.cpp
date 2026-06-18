@@ -483,13 +483,32 @@ void OptionsBar::updateXLimits()
     float minX = xMinEditor->getText().getFloatValue();
     float maxX = xMaxEditor->getText().getFloatValue();
 
+    // Clamp to the actual data collection window so the plot always shows data
+    if (auto* triggeredAvgNode =
+            dynamic_cast<TriggeredAvgNode*> (canvas->getProcessor()))
+    {
+        const float windowMin = -triggeredAvgNode->getPreWindowSizeMs();
+        const float windowMax = triggeredAvgNode->getPostWindowSizeMs();
+        minX = std::max (minX, windowMin);
+        maxX = std::min (maxX, windowMax);
+    }
+
     if (minX >= maxX)
     {
-        // Invalid range - reset to defaults
-        xMinEditor->setText ("-50.0");
-        xMaxEditor->setText ("50.0");
-        minX = -50.0f;
-        maxX = 50.0f;
+        // Invalid range after clamping - reset to full window
+        if (auto* triggeredAvgNode =
+                dynamic_cast<TriggeredAvgNode*> (canvas->getProcessor()))
+        {
+            minX = -triggeredAvgNode->getPreWindowSizeMs();
+            maxX = triggeredAvgNode->getPostWindowSizeMs();
+        }
+        else
+        {
+            minX = -50.0f;
+            maxX = 50.0f;
+        }
+        xMinEditor->setText (String (minX));
+        xMaxEditor->setText (String (maxX));
     }
 
     display->setXLimits (minX, maxX);
@@ -625,9 +644,15 @@ TriggeredAvgCanvas::TriggeredAvgCanvas (TriggeredAvgNode* processor_)
     m_optionsBarHolder->setViewedComponent (m_optionsBar.get(), false);
     addAndMakeVisible (m_optionsBarHolder.get());
 
-    // Start timer for regular display updates (60 Hz)
-    // Note: Visualizer already inherits from Timer, so we use the inherited startTimer
-    startTimer (16); // ~60 FPS
+}
+
+void TriggeredAvgCanvas::refresh()
+{
+    if (m_grid && m_dataStore)
+    {
+        auto lock = m_dataStore->GetLock();
+        m_grid->refresh();
+    }
 }
 
 void TriggeredAvgCanvas::refreshState() { resized(); }

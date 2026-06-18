@@ -24,6 +24,7 @@
 #pragma once
 
 #include "TriggerSource.h"
+#include "Types.h"
 
 #include <ProcessorHeaders.h>
 #include <atomic>
@@ -125,6 +126,7 @@ private:
     // Buffer parameters
     int m_ringBufferSize;
     std::atomic<bool> m_threadsInitialized;
+    SampleNumber m_lastSampleNumber = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TriggeredAvgNode)
 };

@@ -167,11 +167,9 @@ void TriggeredAverage::GridDisplay::prepareToUpdate()
 
 void TriggeredAverage::GridDisplay::setWindowSizeMs (float pre_ms_, float post_ms_)
 {
-    post_ms = post_ms_;
-
     for (auto hist : panels)
     {
-        hist->setWindowSizeMs (pre_ms_, post_ms);
+        hist->setWindowSizeMs (pre_ms_, post_ms_);
     }
 }
 

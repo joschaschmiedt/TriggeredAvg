@@ -22,15 +22,13 @@
 
 */
 #pragma once
+#include "Types.h"
 #include <JuceHeader.h>
 #include <atomic>
 #include <mutex>
-#include <stdint.h>
 
 namespace TriggeredAverage
 {
-
-using SampleNumber = std::int64_t;
 
 enum class RingBufferReadResult : std::int_fast8_t
 {
