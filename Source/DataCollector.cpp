@@ -125,8 +125,7 @@ void DataStore::discardPendingCapture (TriggerSource* source)
 
 bool DataStore::hasPendingCapture (TriggerSource* source) const
 {
-    // Const-correct: lock the mutex via const cast (recursive_mutex is mutable-safe here)
-    std::scoped_lock<std::recursive_mutex> lock (const_cast<std::recursive_mutex&> (m_mutex));
+    auto lock = GetLock();
     return m_pendingCaptures.count (source) > 0;
 }
 

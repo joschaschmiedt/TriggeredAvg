@@ -124,7 +124,7 @@ public:
         return nullptr;
     }
 
-    std::scoped_lock<std::recursive_mutex> GetLock()
+    std::scoped_lock<std::recursive_mutex> GetLock() const
     {
         return std::scoped_lock<std::recursive_mutex> (m_mutex);
     }
@@ -161,7 +161,7 @@ private:
         int timeoutMs; // 0 = never expires
     };
 
-    std::recursive_mutex m_mutex;
+    mutable std::recursive_mutex m_mutex;
     std::unordered_map<TriggerSource*, MultiChannelAverageBuffer> m_averageBuffers;
     std::unordered_map<TriggerSource*, SingleTrialBufferJuce> m_singleTrialBuffers;
     std::unordered_map<TriggerSource*, PendingCapture> m_pendingCaptures;

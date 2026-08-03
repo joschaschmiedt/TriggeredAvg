@@ -338,10 +338,7 @@ void TriggeredAvgNode::handleBroadcastMessage (const String& message, const int6
         return;
 
     // Lazy timeout cleanup
-    {
-        auto lock = m_dataStore->GetLock();
-        m_dataStore->discardExpiredPendingCaptures();
-    }
+    m_dataStore->discardExpiredPendingCaptures();
 
     for (auto source : m_triggerSources.getAll())
     {
@@ -349,10 +346,7 @@ void TriggeredAvgNode::handleBroadcastMessage (const String& message, const int6
         if (source->cancelPattern.isNotEmpty()
             && message.containsIgnoreCase (source->cancelPattern))
         {
-            {
-                auto lock = m_dataStore->GetLock();
-                m_dataStore->discardPendingCapture (source);
-            }
+            m_dataStore->discardPendingCapture (source);
             if (source->type == TriggerType::TTL_AND_MSG_TRIGGER)
                 source->canTrigger = false;
             LOGD ("[TriggeredAvg] Condition '", source->name, "' cancelled");
@@ -362,11 +356,7 @@ void TriggeredAvgNode::handleBroadcastMessage (const String& message, const int6
         if (source->commitPattern.isNotEmpty()
             && message.containsIgnoreCase (source->commitPattern))
         {
-            bool committed = false;
-            {
-                auto lock = m_dataStore->GetLock();
-                committed = m_dataStore->commitPendingCapture (source);
-            }
+            bool committed = m_dataStore->commitPendingCapture (source);
             if (committed)
             {
                 LOGD ("[TriggeredAvg] Pending capture committed for '", source->name, "'");

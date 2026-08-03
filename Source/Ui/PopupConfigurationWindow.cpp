@@ -382,6 +382,9 @@ Component* TableModel::refreshComponentForCell (int rowNumber,
         if (linesLabel == nullptr)
         {
             auto* proc = dynamic_cast<TriggeredAvgNode*> (editor->getProcessor());
+            if (! proc)
+                return nullptr;
+
             linesLabel = new LineSelectorCustomComponent (
                 proc, triggerSources[rowNumber], acquisitionIsActive);
         }
@@ -399,6 +402,9 @@ Component* TableModel::refreshComponentForCell (int rowNumber,
         if (selectorButton == nullptr)
         {
             auto* proc = dynamic_cast<TriggeredAvgNode*> (editor->getProcessor());
+            if (! proc)
+                return nullptr;
+
             selectorButton = new TriggerTypeSelectorCustomComponent (
                 proc, triggerSources[rowNumber], acquisitionIsActive);
         }
@@ -416,6 +422,9 @@ Component* TableModel::refreshComponentForCell (int rowNumber,
         if (colourComponent == nullptr)
         {
             auto* proc = dynamic_cast<TriggeredAvgNode*> (editor->getProcessor());
+            if (! proc)
+                return nullptr;
+
             colourComponent = new ColourDisplayCustomComponent (
                 proc, triggerSources[rowNumber], acquisitionIsActive);
         }
