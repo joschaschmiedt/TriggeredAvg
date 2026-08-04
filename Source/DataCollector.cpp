@@ -72,12 +72,79 @@ void DataStore::ResetAllBuffers()
 {
     auto lock = GetLock();
     for (auto& [source, avgBuffer] : m_averageBuffers)
-    {
         avgBuffer.resetTrials();
-    }
     for (auto& [source, trialBuffer] : m_singleTrialBuffers)
-    {
         trialBuffer.clear();
+    m_pendingCaptures.clear();
+}
+
+void DataStore::storePendingCapture (TriggerSource* source,
+                                     const juce::AudioBuffer<float>& buffer,
+                                     int timeoutMs)
+{
+    auto lock = GetLock();
+    PendingCapture pc;
+    pc.buffer = buffer; // copy
+    pc.captureTimeMs = juce::Time::currentTimeMillis();
+    pc.timeoutMs = timeoutMs;
+    m_pendingCaptures[source] = std::move (pc);
+}
+
+bool DataStore::commitPendingCapture (TriggerSource* source)
+{
+    auto lock = GetLock();
+
+    auto it = m_pendingCaptures.find (source);
+    if (it == m_pendingCaptures.end())
+        return false;
+
+    auto& buf = it->second.buffer;
+
+    auto* avgBuffer = getRefToAverageBufferForTriggerSource (source);
+    auto* trialBuffer = getRefToTrialBufferForTriggerSource (source);
+
+    if (! avgBuffer || ! trialBuffer
+        || buf.getNumSamples() != avgBuffer->getNumSamples()
+        || buf.getNumChannels() != avgBuffer->getNumChannels())
+    {
+        m_pendingCaptures.erase (it);
+        return false;
+    }
+
+    avgBuffer->addDataToAverageFromBuffer (buf);
+    trialBuffer->addTrial (buf);
+    m_pendingCaptures.erase (it);
+    return true;
+}
+
+void DataStore::discardPendingCapture (TriggerSource* source)
+{
+    auto lock = GetLock();
+    m_pendingCaptures.erase (source);
+}
+
+bool DataStore::hasPendingCapture (TriggerSource* source) const
+{
+    auto lock = GetLock();
+    return m_pendingCaptures.count (source) > 0;
+}
+
+void DataStore::discardExpiredPendingCaptures()
+{
+    auto lock = GetLock();
+    const juce::int64 now = juce::Time::currentTimeMillis();
+    for (auto it = m_pendingCaptures.begin(); it != m_pendingCaptures.end();)
+    {
+        const auto& pc = it->second;
+        if (pc.timeoutMs > 0 && (now - pc.captureTimeMs) >= pc.timeoutMs)
+        {
+            LOGD ("[TriggeredAvg] Pending capture expired for source");
+            it = m_pendingCaptures.erase (it);
+        }
+        else
+        {
+            ++it;
+        }
     }
 }
 
@@ -138,17 +205,18 @@ void DataCollector::run()
 
                 do
                 {
-                    result = processCaptureRequest (currentRequest);
+                    bool captureCommitted = false;
+                    result = processCaptureRequest (currentRequest, captureCommitted);
                     assert (result != RingBufferReadResult::UnknownError);
 
                     switch (result)
                     {
                         case RingBufferReadResult::Success:
-                            averageBuffersWereUpdated = true;
+                            if (captureCommitted)
+                                averageBuffersWereUpdated = true;
                             LOGD ("[TriggeredAvg] Capture Request succesfully processed ")
                             break;
                         case RingBufferReadResult::DataInRingBufferTooOld:
-                            averageBuffersWereUpdated = true;
                             LOGD ("[TriggeredAvg] Catpure Request dicarded, data too old. ")
                             break;
 
@@ -220,7 +288,8 @@ void DataCollector::run()
 }
 
 // process a single capture request on the ring buffer, running on the data collector thread
-RingBufferReadResult DataCollector::processCaptureRequest (const CaptureRequest& request)
+RingBufferReadResult DataCollector::processCaptureRequest (const CaptureRequest& request,
+                                                           bool& averageWasUpdated)
 {
     auto result = ringBuffer->readAroundSample (
         request.triggerSample, request.preSamples, request.postSamples, m_collectBuffer);
@@ -277,7 +346,19 @@ RingBufferReadResult DataCollector::processCaptureRequest (const CaptureRequest&
                                                             m_collectBuffer.getNumSamples());
     }
 
-    // Now add data with a separate, brief lock acquisition
+    // If a commit pattern is set, hold the capture pending instead of committing immediately.
+    // The message thread will call commitPendingCapture / discardPendingCapture.
+    if (request.triggerSource->commitPattern.isNotEmpty())
+    {
+        m_datastore->storePendingCapture (request.triggerSource,
+                                         m_collectBuffer,
+                                         request.triggerSource->pendingTimeoutMs);
+        averageWasUpdated = false;
+        LOGD ("[TriggeredAvg] Capture stored as pending for '", request.triggerSource->name, "'");
+        return result;
+    }
+
+    // Commit immediately
     {
         auto lock = m_datastore->GetLock();
         avgBuffer = m_datastore->getRefToAverageBufferForTriggerSource (request.triggerSource);
@@ -288,11 +369,9 @@ RingBufferReadResult DataCollector::processCaptureRequest (const CaptureRequest&
         jassert (m_collectBuffer.getNumSamples() == avgBuffer->getNumSamples());
         jassert (m_collectBuffer.getNumChannels() == avgBuffer->getNumChannels());
 
-        // Add to average buffer
         avgBuffer->addDataToAverageFromBuffer (m_collectBuffer);
-
-        // Add to trial buffer (uses template wrapper for AudioBuffer)
         trialBuffer->addTrial (m_collectBuffer);
+        averageWasUpdated = true;
     }
 
     return result;

@@ -28,8 +28,7 @@ class TriggeredAvgNode;
 class TriggerSource
 {
 public:
-    TriggerSource (TriggeredAvgNode* processor_,
-                   const juce::String& name_,
+    TriggerSource (const juce::String& name_,
                    int line_,
                    TriggerType type_);
 
@@ -40,7 +39,14 @@ public:
     TriggerType type;
     bool canTrigger;
     juce::Colour colour;
-    TriggeredAvgNode* processor;
+
+    // Message patterns (contains-match, case-insensitive, empty = disabled)
+    juce::String armPattern;      // arm the trigger (TTL_AND_MSG) or fire directly (MSG_TRIGGER)
+    juce::String cancelPattern;   // discard pending capture + disarm (TTL_AND_MSG)
+    juce::String commitPattern;   // commit pending capture to average
+
+    // How long to keep an uncommitted pending capture before auto-discarding (ms, 0 = disabled)
+    int pendingTimeoutMs = 2000;
 };
 
 // Container class for managing multiple TriggerSource objects
@@ -84,6 +90,9 @@ public:
     void setTriggerSourceTriggerType (TriggerSource* source,
                                       TriggerType type,
                                       bool updateEditor = true);
+    void setTriggerSourceArmPattern (TriggerSource* source, const String& pattern);
+    void setTriggerSourceCancelPattern (TriggerSource* source, const String& pattern);
+    void setTriggerSourceCommitPattern (TriggerSource* source, const String& pattern);
     String ensureUniqueTriggerSourceName (String name);
     int getNextConditionIndex() const { return m_nextConditionIndex; }
     void clear() { m_triggerSources.clear(); }

@@ -18,12 +18,12 @@ class MockTriggerSource : public TriggerSource
 {
 public:
     explicit MockTriggerSource (int line = 0, const juce::String& name = "MockTrigger")
-        : TriggerSource (nullptr, name, line, TriggerType::TTL_TRIGGER)
+        : TriggerSource (name, line, TriggerType::TTL_TRIGGER)
     {
     }
 
     MockTriggerSource (int line, TriggerType type)
-        : TriggerSource (nullptr, "MockTrigger", line, type)
+        : TriggerSource ("MockTrigger", line, type)
     {
     }
 };

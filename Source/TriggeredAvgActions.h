@@ -138,5 +138,34 @@ private:
     TriggerType oldType;
     int triggerIndex = -1;
 };
+
+class SetTriggerSourcePattern : public ProcessorAction
+{
+public:
+    enum class Field
+    {
+        ARM,
+        CANCEL,
+        COMMIT
+    };
+
+    SetTriggerSourcePattern (TriggeredAvgNode* processor,
+                             TriggerSource* source,
+                             Field field,
+                             const String& newPattern);
+    ~SetTriggerSourcePattern() override = default;
+
+    void restoreOwner (GenericProcessor* processor) override;
+    bool perform() override;
+    bool undo() override;
+
+private:
+    TriggeredAvgNode* processorNode;
+    TriggerSource* triggerSource;
+    Field field;
+    String newPattern;
+    String oldPattern;
+    int triggerIndex = -1;
+};
 } // namespace TriggeredAverage
 #endif /* TriggeredAvgNodeActions_h */

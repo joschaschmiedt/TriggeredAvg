@@ -79,8 +79,11 @@ private:
 class LineSelectorCustomComponent : public juce::Label, public SyncLineSelector::Listener
 {
 public:
-    LineSelectorCustomComponent (TriggerSource* source_, bool acquisitionIsActive_)
-        : source (source_),
+    LineSelectorCustomComponent (TriggeredAvgNode* processor_,
+                                 TriggerSource* source_,
+                                 bool acquisitionIsActive_)
+        : processor (processor_),
+          source (source_),
           acquisitionIsActive (acquisitionIsActive_)
     {
         setEditable (false, false, false);
@@ -97,6 +100,7 @@ public:
     TriggerSource* source;
 
 private:
+    TriggeredAvgNode* processor;
     int columnId;
     juce::Colour textColour;
     bool acquisitionIsActive;
@@ -110,8 +114,11 @@ class TriggerTypeSelectorCustomComponent : public Component
 {
 public:
     /** Constructor */
-    TriggerTypeSelectorCustomComponent (TriggerSource* source_, bool acquisitionIsActive_)
-        : acquisitionIsActive (acquisitionIsActive_),
+    TriggerTypeSelectorCustomComponent (TriggeredAvgNode* processor_,
+                                        TriggerSource* source_,
+                                        bool acquisitionIsActive_)
+        : processor (processor_),
+          acquisitionIsActive (acquisitionIsActive_),
           source (source_)
     {
         assert (source != nullptr);
@@ -133,6 +140,7 @@ public:
     TriggerSource* source;
 
 private:
+    TriggeredAvgNode* processor;
     TableModel* table;
     int columnId;
     juce::Colour textColour;
@@ -146,8 +154,11 @@ class ColourDisplayCustomComponent : public Component, public ChangeListener
 {
 public:
     /** Constructor */
-    ColourDisplayCustomComponent (TriggerSource* source_, bool acquisitionIsActive_)
-        : acquisitionIsActive (acquisitionIsActive_),
+    ColourDisplayCustomComponent (TriggeredAvgNode* processor_,
+                                  TriggerSource* source_,
+                                  bool acquisitionIsActive_)
+        : processor (processor_),
+          acquisitionIsActive (acquisitionIsActive_),
           source (source_)
     {
         assert (source != nullptr);
@@ -172,6 +183,7 @@ public:
     TriggerSource* source;
 
 private:
+    TriggeredAvgNode* processor;
     TableModel* table;
     int columnId;
     bool acquisitionIsActive;
@@ -225,6 +237,9 @@ public:
     {
         INDEX = 1,
         NAME,
+        ARM_PATTERN,
+        CANCEL_PATTERN,
+        COMMIT_PATTERN,
         LINE,
         TYPE,
         COLOUR,

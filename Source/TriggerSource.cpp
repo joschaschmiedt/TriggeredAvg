@@ -4,14 +4,12 @@
 #include <JuceHeader.h>
 
 using namespace TriggeredAverage;
-TriggeredAverage::TriggerSource::TriggerSource (TriggeredAvgNode* processor_,
-                                                const juce::String& name_,
+TriggeredAverage::TriggerSource::TriggerSource (const juce::String& name_,
                                                 int line_,
                                                 TriggerType type_)
     : name (name_),
       line (line_),
-      type (type_),
-      processor (processor_)
+      type (type_)
 {
     if (type == TriggerType::TTL_TRIGGER)
         canTrigger = true;
@@ -50,7 +48,7 @@ TriggerSource* TriggerSources::addTriggerSource (int line, TriggerType type, int
     String name = "Condition " + String (m_nextConditionIndex++);
     name = ensureUniqueTriggerSourceName (name);
 
-    TriggerSource* source = new TriggerSource (m_parentProcessor, name, line, type);
+    TriggerSource* source = new TriggerSource (name, line, type);
 
     if (index == -1)
         m_triggerSources.add (source);
@@ -143,4 +141,19 @@ void TriggerSources::setTriggerSourceTriggerType (TriggerSource* source,
     if (m_parentProcessor && updateEditor)
         m_parentProcessor->getParameter (ParameterNames::trigger_type)
             ->setNextValue ((int) type, false);
+}
+
+void TriggerSources::setTriggerSourceArmPattern (TriggerSource* source, const String& pattern)
+{
+    source->armPattern = pattern;
+}
+
+void TriggerSources::setTriggerSourceCancelPattern (TriggerSource* source, const String& pattern)
+{
+    source->cancelPattern = pattern;
+}
+
+void TriggerSources::setTriggerSourceCommitPattern (TriggerSource* source, const String& pattern)
+{
+    source->commitPattern = pattern;
 }

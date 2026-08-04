@@ -124,7 +124,7 @@ public:
         return nullptr;
     }
 
-    std::scoped_lock<std::recursive_mutex> GetLock()
+    std::scoped_lock<std::recursive_mutex> GetLock() const
     {
         return std::scoped_lock<std::recursive_mutex> (m_mutex);
     }
@@ -134,16 +134,37 @@ public:
         auto lock = GetLock();
         m_averageBuffers.clear();
         m_singleTrialBuffers.clear();
+        m_pendingCaptures.clear();
     }
 
     void ResetAllBuffers();
-
     void setMaxTrialsToStore (int n);
 
+    // Pending-commit support -------------------------------------------------
+    void storePendingCapture (TriggerSource* source,
+                              const juce::AudioBuffer<float>& buffer,
+                              int timeoutMs);
+    // Moves the pending buffer into the average/trial buffers. Returns true if
+    // a pending capture existed and was successfully committed.
+    bool commitPendingCapture (TriggerSource* source);
+    void discardPendingCapture (TriggerSource* source);
+    bool hasPendingCapture (TriggerSource* source) const;
+    // Discards all pending captures whose timeout has elapsed. Call
+    // periodically on the message thread (e.g. from handleBroadcastMessage).
+    void discardExpiredPendingCaptures();
+
 private:
-    std::recursive_mutex m_mutex;
+    struct PendingCapture
+    {
+        juce::AudioBuffer<float> buffer;
+        juce::int64 captureTimeMs;
+        int timeoutMs; // 0 = never expires
+    };
+
+    mutable std::recursive_mutex m_mutex;
     std::unordered_map<TriggerSource*, MultiChannelAverageBuffer> m_averageBuffers;
     std::unordered_map<TriggerSource*, SingleTrialBufferJuce> m_singleTrialBuffers;
+    std::unordered_map<TriggerSource*, PendingCapture> m_pendingCaptures;
 };
 
 class DataCollector : public Thread
@@ -169,7 +190,9 @@ private:
     CriticalSection triggerQueueLock;
     WaitableEvent newTriggerEvent;
 
-    RingBufferReadResult processCaptureRequest (const CaptureRequest&);
+    // averageWasUpdated is set to true only when the capture is immediately
+    // committed to the average (not when it is stored as pending).
+    RingBufferReadResult processCaptureRequest (const CaptureRequest&, bool& averageWasUpdated);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DataCollector)
     JUCE_DECLARE_NON_MOVEABLE (DataCollector)
