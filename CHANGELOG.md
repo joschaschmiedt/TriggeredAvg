@@ -5,6 +5,14 @@ All notable changes to the TriggeredAvg plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-08-04
+
+### Changed
+
+- CI: Windows builds now use the Visual Studio 2026 toolchain (`Visual Studio 18 2026` generator); the retired `Visual Studio 17 2022` generator is gone from the GitHub-hosted images
+- CI: Windows jobs install a current CMake via `lukka/get-cmake`, since the runner image ships CMake 3.31.x which predates the VS 2026 generator
+- CI: dropped the `ilammy/msvc-dev-cmd` step, which is unnecessary when configuring with a Visual Studio generator
+
 ## [0.2.0] - 2026-08-04
 
 ### Added

@@ -28,8 +28,10 @@ jobs:
           path: plugin-GUI
           submodules: recursive
 
-      - name: Setup MSVC
-        uses: ilammy/msvc-dev-cmd@v1
+      # The runner image ships CMake 3.31.x, which predates the
+      # "Visual Studio 18 2026" generator (added in CMake 4.2.3).
+      - name: Setup CMake
+        uses: lukka/get-cmake@latest
 
       - name: Cache GUI dependencies
         uses: actions/cache@v4
@@ -44,7 +46,7 @@ jobs:
       - name: Configure Open Ephys GUI
         run: |
           cd plugin-GUI
-          cmake -B Build -G "Visual Studio 17 2022" -A x64 -DBUILD_TESTS=OFF
+          cmake -B Build -G "Visual Studio 18 2026" -A x64 -DBUILD_TESTS=OFF
 
       - name: Build Open Ephys GUI
         run: |
@@ -54,7 +56,7 @@ jobs:
       - name: Configure plugin
         run: |
           cd plugin
-          cmake -B Build -G "Visual Studio 17 2022" -A x64 -DGUI_BASE_DIR="${{ github.workspace }}/plugin-GUI" -DBUILD_TESTS=OFF
+          cmake -B Build -G "Visual Studio 18 2026" -A x64 -DGUI_BASE_DIR="${{ github.workspace }}/plugin-GUI" -DBUILD_TESTS=OFF
 
       - name: Build plugin
         run: |
