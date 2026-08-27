@@ -1,5 +1,8 @@
 # Developer Guide
 
+> [!IMPORTANT]
+> **This repository is archived and no longer maintained.** Development continues in [brain-bremen/event-triggered-analysis](https://github.com/brain-bremen/event-triggered-analysis).
+
 This guide provides detailed information for developers working on the Triggered Average plugin.
 
 ## Building from Source

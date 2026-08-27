@@ -1,5 +1,10 @@
 # Triggered Average
 
+> [!IMPORTANT]
+> **This repository is archived and no longer maintained.**
+>
+> It has been superseded by [**brain-bremen/event-triggered-analysis**](https://github.com/brain-bremen/event-triggered-analysis), which contains the Triggered Average plugin along with other event-based analysis plugins. Please use that repository for the latest version, issues, and contributions.
+
 A plugin for the Open Ephys GUI that averages continuous signals triggered by TTL events and/or messages, similar to a triggered display on an oscilloscope. The plugin is still work-in-progress and may contain bugs or unexpected behavior. Please report any issues you encounter. 
 
 ![Triggered Average Screenshot](Resources/screenshot_canvas.png)
